@@ -1,4 +1,4 @@
-package com.expensemanager;
+﻿package com.expensemanager;
 
 import com.expensemanager.model.*;
 import com.expensemanager.repository.*;
@@ -535,9 +535,18 @@ public class MainApp extends Application {
     /* ---------- Report UI ---------- */
 
     private BorderPane buildReportTab() {
-        TextField month = new TextField(String.valueOf(LocalDate.now().getMonthValue()));
-        TextField year = new TextField(String.valueOf(LocalDate.now().getYear()));
-        TextField date = new TextField(LocalDate.now().toString());
+        reportMonthBox = new ComboBox<>(FXCollections.observableArrayList(
+                java.util.stream.IntStream.rangeClosed(1, 12).boxed().toList()));
+        reportMonthBox.getSelectionModel().select(Integer.valueOf(LocalDate.now().getMonthValue()));
+
+        reportYearBox = new ComboBox<>(FXCollections.observableArrayList(availableReportYears()));
+        if (!reportYearBox.getItems().isEmpty()) {
+            reportYearBox.getSelectionModel().selectFirst();
+        } else {
+            reportYearBox.getItems().add(LocalDate.now().getYear());
+            reportYearBox.getSelectionModel().selectFirst();
+        }
+
         monthlyLabel = new Label();
         yearlyLabel = new Label();
         dailyLabel = new Label();
@@ -552,65 +561,48 @@ public class MainApp extends Application {
         reportTxTable = new TableView<>();
         reportTxTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         reportTxTable.getColumns().addAll(
-                column("Ngày", "transactionDate"),
-                column("Loại", "type"),
-                moneyColumn("Số tiền", "amount"),
-                mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
-                mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
-                column("Tiêu đề", "title")
+                column("Ngay", "transactionDate"),
+                column("Loai", "type"),
+                moneyColumn("So tien", "amount"),
+                mappingColumn("Vi", Transaction::getWalletId, () -> walletNameMap, "Vi #"),
+                mappingColumn("Danh muc", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
+                column("Tieu de", "title")
         );
         reportTxData = FXCollections.observableArrayList();
         reportTxTable.setItems(reportTxData);
 
-        Button calcMonth = new Button("Tính tháng");
-        calcMonth.setOnAction(e -> {
-            int m = Integer.parseInt(month.getText());
-            int y = Integer.parseInt(year.getText());
-            var income = reportService.totalIncomeByMonth(currentUserId(), m, y);
-            var expense = reportService.totalExpenseByMonth(currentUserId(), m, y);
-            monthlyLabel.setText(String.format("Thu: %s | Chi: %s | Cân đối: %s",
-                    fmt(income), fmt(expense), fmt(income.subtract(expense))));
-            topCatLabel.setText(reportService.topExpenseCategory(currentUserId(), m, y)
-                    .orElse("Chưa có dữ liệu"));
-            reportTxData.setAll(transactionService.list(currentUserId()).stream()
-                    .filter(t -> t.getTransactionDate().getMonthValue() == m && t.getTransactionDate().getYear() == y)
-                    .toList());
-        });
+        monthlyLabel.setStyle("-fx-font-weight: 700;");
+        yearlyLabel.setStyle("-fx-font-weight: 700;");
+        dailyLabel.setStyle("-fx-font-weight: 700;");
 
-        Button calcDate = new Button("Tính ngày");
-        calcDate.setOnAction(e -> {
-            LocalDate d = LocalDate.parse(date.getText());
-            var income = reportService.totalIncomeByDate(currentUserId(), d);
-            var expense = reportService.totalExpenseByDate(currentUserId(), d);
-            dailyLabel.setText(String.format("Thu: %s | Chi: %s | Cân đối: %s",
-                    fmt(income), fmt(expense), fmt(income.subtract(expense))));
-        });
+        reportMonthBox.valueProperty().addListener((obs, oldV, newV) -> refreshReportByFilter());
+        reportYearBox.valueProperty().addListener((obs, oldV, newV) -> refreshReportByFilter());
 
-        Button calcYear = new Button("Tính năm");
-        calcYear.setOnAction(e -> {
-            int y = Integer.parseInt(year.getText());
-            var income = reportService.totalIncomeByYear(currentUserId(), y);
-            var expense = reportService.totalExpenseByYear(currentUserId(), y);
-            yearlyLabel.setText(String.format("Thu: %s | Chi: %s | Cân đối: %s",
-                    fmt(income), fmt(expense), fmt(income.subtract(expense))));
-        });
+        VBox incomeCard = new VBox(4, new Label("Tong Thu nhap"), monthlyLabel);
+        incomeCard.setStyle("-fx-background-color: #E9FBEF; -fx-border-color: #4ADE80; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
 
-        Button walletBtn = new Button("Tổng số dư ví");
-        walletBtn.setOnAction(e -> totalWalletLabel.setText(fmt(reportService.totalWalletBalance(currentUserId()))));
+        VBox expenseCard = new VBox(4, new Label("Tong Chi tieu"), yearlyLabel);
+        expenseCard.setStyle("-fx-background-color: #FEECEC; -fx-border-color: #F87171; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
 
-        VBox box = new VBox(8,
-                new HBox(6, new Label("Tháng"), month, new Label("Năm"), year, calcMonth, calcYear),
-                monthlyLabel,
-                yearlyLabel,
-                new HBox(6, new Label("Ngày (yyyy-MM-dd)"), date, calcDate),
-                dailyLabel,
-                new HBox(6, new Label("DM chi nhiều nhất"), topCatLabel),
-                new HBox(6, walletBtn, totalWalletLabel),
-                new Label("Giao dịch của tháng đã chọn:"),
+        VBox netCard = new VBox(4, new Label("So du thuan"), dailyLabel);
+        netCard.setStyle("-fx-background-color: #EEF5FF; -fx-border-color: #60A5FA; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
+
+        Label topCatTitle = new Label("DM chi nhiều nhất");
+        topCatTitle.setMinWidth(140);
+        Label walletTotalTitle = new Label("Tổng số dư ví");
+        walletTotalTitle.setMinWidth(140);
+
+        VBox box = new VBox(10,
+                new HBox(8, new Label("Tháng"), reportMonthBox, new Label("Năm"), reportYearBox),
+                new HBox(10, incomeCard, expenseCard, netCard),
+                new HBox(10, topCatTitle, topCatLabel),
+                new HBox(10, walletTotalTitle, totalWalletLabel),
+                new Label("Giao dich cua thang da chon:"),
                 reportTxTable
         );
         box.setPadding(new Insets(10));
 
+        refreshReportByFilter();
         return new BorderPane(box, null, null, null, null);
     }
 
@@ -626,6 +618,8 @@ public class MainApp extends Application {
     private Label dailyLabel;
     private Label topCatLabel;
     private Label totalWalletLabel;
+    private ComboBox<Integer> reportMonthBox;
+    private ComboBox<Integer> reportYearBox;
 
     private Map<Integer, String> walletNameMap;
     private Map<Integer, String> categoryNameMap;
@@ -784,39 +778,52 @@ public class MainApp extends Application {
     }
 
     private void refreshReportDefault() {
-        LocalDate now = LocalDate.now();
-        int m = now.getMonthValue();
-        int y = now.getYear();
-        if (reportTxData != null) {
-            reportTxData.setAll(transactionService.list(currentUserId()).stream()
-                    .filter(t -> t.getTransactionDate().getMonthValue() == m && t.getTransactionDate().getYear() == y)
-                    .toList());
+        refreshReportByFilter();
+    }
+
+    private List<Integer> availableReportYears() {
+        return transactionService.list(currentUserId()).stream()
+                .map(t -> t.getTransactionDate().getYear())
+                .distinct()
+                .sorted((a, b) -> Integer.compare(b, a))
+                .toList();
+    }
+
+    private void refreshReportByFilter() {
+        if (reportMonthBox == null || reportYearBox == null) {
+            return;
         }
-        if (monthlyLabel != null) {
-            var income = reportService.totalIncomeByMonth(currentUserId(), m, y);
-            var expense = reportService.totalExpenseByMonth(currentUserId(), m, y);
-            monthlyLabel.setText(String.format("Tháng %02d/%d - Thu: %s | Chi: %s | Cân đối: %s",
-                    m, y, fmt(income), fmt(expense), fmt(income.subtract(expense))));
-        }
+
+        int month = reportMonthBox.getValue() != null ? reportMonthBox.getValue() : LocalDate.now().getMonthValue();
+        int year = reportYearBox.getValue() != null ? reportYearBox.getValue() : LocalDate.now().getYear();
+
+        var incomeMonth = reportService.totalIncomeByMonth(currentUserId(), month, year);
+        var expenseMonth = reportService.totalExpenseByMonth(currentUserId(), month, year);
+        var netMonth = incomeMonth.subtract(expenseMonth);
+
+        if (monthlyLabel != null) monthlyLabel.setText(fmt(incomeMonth));
+        if (yearlyLabel != null) yearlyLabel.setText(fmt(expenseMonth));
         if (dailyLabel != null) {
-            var income = reportService.totalIncomeByDate(currentUserId(), now);
-            var expense = reportService.totalExpenseByDate(currentUserId(), now);
-            dailyLabel.setText(String.format("Hôm nay %s - Thu: %s | Chi: %s | Cân đối: %s",
-                    now, fmt(income), fmt(expense), fmt(income.subtract(expense))));
-        }
-        if (yearlyLabel != null) {
-            var income = reportService.totalIncomeByYear(currentUserId(), y);
-            var expense = reportService.totalExpenseByYear(currentUserId(), y);
-            yearlyLabel.setText(String.format("Năm %d - Thu: %s | Chi: %s | Cân đối: %s",
-                    y, fmt(income), fmt(expense), fmt(income.subtract(expense))));
+            dailyLabel.setText(fmt(netMonth));
+            dailyLabel.setStyle(netMonth.compareTo(BigDecimal.ZERO) < 0
+                    ? "-fx-font-weight: 700; -fx-text-fill: #dc2626;"
+                    : "-fx-font-weight: 700; -fx-text-fill: #16a34a;");
         }
         if (topCatLabel != null) {
-            topCatLabel.setText(reportService.topExpenseCategory(currentUserId(), m, y)
-                    .orElse("Chưa có dữ liệu"));
+            topCatLabel.setText(reportService.topExpenseCategory(currentUserId(), month, year)
+                    .orElse("Chua co du lieu"));
         }
         if (totalWalletLabel != null) {
             totalWalletLabel.setText(fmt(reportService.totalWalletBalance(currentUserId())));
         }
+
+        if (reportTxData != null) {
+            reportTxData.setAll(transactionService.list(currentUserId()).stream()
+                    .filter(t -> t.getTransactionDate().getMonthValue() == month && t.getTransactionDate().getYear() == year)
+                    .toList());
+        }
     }
 
 }
+
+

@@ -1,16 +1,19 @@
-﻿package com.expensemanager;
+package com.expensemanager;
 
 import com.expensemanager.model.*;
 import com.expensemanager.repository.*;
 import com.expensemanager.service.*;
 import javafx.application.Application;
+import javafx.beans.property.BooleanProperty;
 import javafx.beans.property.ReadOnlyObjectWrapper;
+import javafx.beans.property.SimpleBooleanProperty;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.TableCell;
+import javafx.scene.control.cell.CheckBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
@@ -36,6 +39,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 
 /**
  * JavaFX entry point: màn hình login/đăng ký đơn giản, sau đó TabPane cho từng chức năng.
@@ -206,11 +210,17 @@ public class MainApp extends Application {
 
     private TableView<Wallet> walletTable;
     private ObservableList<Wallet> walletData;
+    private final Map<Wallet, BooleanProperty> walletCheckedMap = new HashMap<>();
+    private Button walletDeleteAllBtn;
 
     private BorderPane buildWalletTab() {
         walletTable = new TableView<>();
         walletTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        walletDeleteAllBtn = new Button("Xóa tất cả");
+        walletDeleteAllBtn.setVisible(false);
+        walletDeleteAllBtn.setManaged(false);
         walletTable.getColumns().addAll(
+                selectColumn(walletTable, walletCheckedMap, () -> updateBulkDeleteButton(walletDeleteAllBtn, walletCheckedMap)),
                 sttColumn(walletTable),
                 column("Tên", "name"),
                 column("Loại", "type"),
@@ -220,18 +230,24 @@ public class MainApp extends Application {
         List<Wallet> initialWallets = walletService.listByUser(currentUserId());
         walletData = FXCollections.observableArrayList(initialWallets);
         walletNameMap = initialWallets.stream().collect(Collectors.toMap(Wallet::getId, Wallet::getName));
+        resetCheckedMap(walletCheckedMap, initialWallets, () -> updateBulkDeleteButton(walletDeleteAllBtn, walletCheckedMap));
         walletTable.setItems(walletData);
 
         TextField name = new TextField();
+        TextField initialBalance = new TextField();
         ComboBox<WalletType> type = new ComboBox<>(FXCollections.observableArrayList(WalletType.values()));
         type.getSelectionModel().select(WalletType.CASH);
 
         Button add = new Button("Thêm");
         add.setOnAction(e -> {
             try {
-                Wallet w = walletService.create(currentUserId(), name.getText(), type.getValue().name());
+                BigDecimal balance = initialBalance.getText().isBlank() ? BigDecimal.ZERO : new BigDecimal(initialBalance.getText().trim());
+                Wallet w = walletService.create(currentUserId(), name.getText(), type.getValue().name(), balance);
                 refreshWalletTable();
                 walletTable.getSelectionModel().select(w);
+                name.clear();
+                initialBalance.clear();
+                type.getSelectionModel().select(WalletType.CASH);
             } catch (Exception ex) {
                 alert("Không thêm được ví: " + ex.getMessage());
             }
@@ -249,6 +265,10 @@ public class MainApp extends Application {
                 alert("Không thể cập nhật");
             }
             refreshWalletTable();
+            name.clear();
+            initialBalance.clear();
+            type.getSelectionModel().select(WalletType.CASH);
+            walletTable.getSelectionModel().clearSelection();
         });
 
         Button delete = new Button("Xóa");
@@ -260,6 +280,28 @@ public class MainApp extends Application {
             }
             walletService.delete(currentUserId(), selected.getId());
             refreshWalletTable();
+            name.clear();
+            initialBalance.clear();
+            type.getSelectionModel().select(WalletType.CASH);
+            walletTable.getSelectionModel().clearSelection();
+        });
+
+        walletDeleteAllBtn.setOnAction(e -> {
+            List<Wallet> selected = checkedItems(walletCheckedMap);
+            if (selected.isEmpty()) {
+                return;
+            }
+            if (!confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " ví đã chọn?")) {
+                return;
+            }
+            for (Wallet wallet : selected) {
+                walletService.delete(currentUserId(), wallet.getId());
+            }
+            refreshWalletTable();
+            name.clear();
+            initialBalance.clear();
+            type.getSelectionModel().select(WalletType.CASH);
+            walletTable.getSelectionModel().clearSelection();
         });
 
         walletTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
@@ -271,8 +313,9 @@ public class MainApp extends Application {
 
         VBox form = new VBox(8,
                 new HBox(6, new Label("Tên"), name),
+                new HBox(6, new Label("Số dư ban đầu"), initialBalance),
                 new HBox(6, new Label("Loại"), type),
-                new HBox(6, add, update, delete)
+                new HBox(6, add, update, delete, walletDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -286,11 +329,17 @@ public class MainApp extends Application {
 
     private TableView<Category> categoryTable;
     private ObservableList<Category> categoryData;
+    private final Map<Category, BooleanProperty> categoryCheckedMap = new HashMap<>();
+    private Button categoryDeleteAllBtn;
 
     private BorderPane buildCategoryTab() {
         categoryTable = new TableView<>();
         categoryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        categoryDeleteAllBtn = new Button("Xóa tất cả");
+        categoryDeleteAllBtn.setVisible(false);
+        categoryDeleteAllBtn.setManaged(false);
         categoryTable.getColumns().addAll(
+                selectColumn(categoryTable, categoryCheckedMap, () -> updateBulkDeleteButton(categoryDeleteAllBtn, categoryCheckedMap)),
                 sttColumn(categoryTable),
                 column("Tên", "name"),
                 column("Loại", "type"),
@@ -299,6 +348,7 @@ public class MainApp extends Application {
         List<Category> initialCategories = categoryService.list(currentUserId());
         categoryData = FXCollections.observableArrayList(initialCategories);
         categoryNameMap = initialCategories.stream().collect(Collectors.toMap(Category::getId, Category::getName));
+        resetCheckedMap(categoryCheckedMap, initialCategories, () -> updateBulkDeleteButton(categoryDeleteAllBtn, categoryCheckedMap));
         categoryTable.setItems(categoryData);
 
         TextField name = new TextField();
@@ -311,6 +361,9 @@ public class MainApp extends Application {
             try {
                 categoryService.create(currentUserId(), name.getText(), type.getValue(), icon.getText());
                 refreshCategoryTable();
+                name.clear();
+                icon.clear();
+                type.getSelectionModel().select(CategoryType.EXPENSE);
             } catch (Exception ex) {
                 alert("Không thêm được danh mục: " + ex.getMessage());
             }
@@ -326,6 +379,10 @@ public class MainApp extends Application {
             boolean ok = categoryService.update(currentUserId(), selected.getId(), name.getText(), type.getValue(), icon.getText());
             if (!ok) alert("Cập nhật thất bại");
             refreshCategoryTable();
+            name.clear();
+            icon.clear();
+            type.getSelectionModel().select(CategoryType.EXPENSE);
+            categoryTable.getSelectionModel().clearSelection();
         });
 
         Button delete = new Button("Xóa");
@@ -337,6 +394,28 @@ public class MainApp extends Application {
             }
             categoryService.delete(currentUserId(), selected.getId());
             refreshCategoryTable();
+            name.clear();
+            icon.clear();
+            type.getSelectionModel().select(CategoryType.EXPENSE);
+            categoryTable.getSelectionModel().clearSelection();
+        });
+
+        categoryDeleteAllBtn.setOnAction(e -> {
+            List<Category> selected = checkedItems(categoryCheckedMap);
+            if (selected.isEmpty()) {
+                return;
+            }
+            if (!confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " danh mục đã chọn?")) {
+                return;
+            }
+            for (Category category : selected) {
+                categoryService.delete(currentUserId(), category.getId());
+            }
+            refreshCategoryTable();
+            name.clear();
+            icon.clear();
+            type.getSelectionModel().select(CategoryType.EXPENSE);
+            categoryTable.getSelectionModel().clearSelection();
         });
 
         categoryTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -351,7 +430,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tên"), name),
                 new HBox(6, new Label("Loại"), type),
                 new HBox(6, new Label("Icon"), icon),
-                new HBox(6, add, update, delete)
+                new HBox(6, add, update, delete, categoryDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -364,16 +443,22 @@ public class MainApp extends Application {
     private TableView<Transaction> transactionTable;
     private ObservableList<Transaction> transactionData;
     private List<Transaction> allTransactions = new ArrayList<>();
+    private final Map<Transaction, BooleanProperty> transactionCheckedMap = new HashMap<>();
     private ComboBox<Wallet> txWalletBox;
     private ComboBox<Category> txCategoryBox;
     private ComboBox<String> txTypeFilterBox;
     private ComboBox<Wallet> txWalletFilterBox;
     private ComboBox<String> txSortFilterBox;
+    private Button transactionDeleteAllBtn;
 
     private BorderPane buildTransactionTab() {
         transactionTable = new TableView<>();
         transactionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        transactionDeleteAllBtn = new Button("Xóa tất cả");
+        transactionDeleteAllBtn.setVisible(false);
+        transactionDeleteAllBtn.setManaged(false);
         transactionTable.getColumns().addAll(
+                selectColumn(transactionTable, transactionCheckedMap, () -> updateBulkDeleteButton(transactionDeleteAllBtn, transactionCheckedMap)),
                 sttColumn(transactionTable),
                 column("Ngày", "transactionDate"),
                 column("Loại", "type"),
@@ -384,6 +469,7 @@ public class MainApp extends Application {
         );
         allTransactions = transactionService.list(currentUserId());
         transactionData = FXCollections.observableArrayList(allTransactions);
+        resetCheckedMap(transactionCheckedMap, allTransactions, () -> updateBulkDeleteButton(transactionDeleteAllBtn, transactionCheckedMap));
         transactionTable.setItems(transactionData);
 
         txWalletBox = new ComboBox<>();
@@ -425,6 +511,13 @@ public class MainApp extends Application {
                 transactionService.add(tx);
                 refreshTransactionTableAndCombos();
                 applyTransactionFilter();
+                amount.clear();
+                title.clear();
+                note.clear();
+                datePicker.setValue(LocalDate.now());
+                type.getSelectionModel().select(TransactionType.EXPENSE);
+                if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
+                if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
             } catch (Exception ex) {
                 alert("Không thêm được giao dịch: " + ex.getMessage());
             }
@@ -448,6 +541,14 @@ public class MainApp extends Application {
                 transactionService.update(selected);
                 refreshTransactionTableAndCombos();
                 applyTransactionFilter();
+                amount.clear();
+                title.clear();
+                note.clear();
+                datePicker.setValue(LocalDate.now());
+                type.getSelectionModel().select(TransactionType.EXPENSE);
+                if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
+                if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
+                transactionTable.getSelectionModel().clearSelection();
             } catch (Exception ex) {
                 alert("Không sửa được: " + ex.getMessage());
             }
@@ -463,6 +564,37 @@ public class MainApp extends Application {
             transactionService.delete(selected.getId(), currentUserId());
             refreshTransactionTableAndCombos();
             applyTransactionFilter();
+            amount.clear();
+            title.clear();
+            note.clear();
+            datePicker.setValue(LocalDate.now());
+            type.getSelectionModel().select(TransactionType.EXPENSE);
+            if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
+            if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
+            transactionTable.getSelectionModel().clearSelection();
+        });
+
+        transactionDeleteAllBtn.setOnAction(e -> {
+            List<Transaction> selected = checkedItems(transactionCheckedMap);
+            if (selected.isEmpty()) {
+                return;
+            }
+            if (!confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " giao dịch đã chọn?")) {
+                return;
+            }
+            for (Transaction tx : selected) {
+                transactionService.delete(tx.getId(), currentUserId());
+            }
+            refreshTransactionTableAndCombos();
+            applyTransactionFilter();
+            amount.clear();
+            title.clear();
+            note.clear();
+            datePicker.setValue(LocalDate.now());
+            type.getSelectionModel().select(TransactionType.EXPENSE);
+            if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
+            if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
+            transactionTable.getSelectionModel().clearSelection();
         });
 
         transactionTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -485,7 +617,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tiêu đề"), title),
                 new HBox(6, new Label("Ghi chú"), note),
                 new HBox(6, new Label("Ngày"), datePicker),
-                new HBox(6, add, update, delete)
+                new HBox(6, add, update, delete, transactionDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -508,22 +640,30 @@ public class MainApp extends Application {
 
     private TableView<Budget> budgetTable;
     private ObservableList<Budget> budgetData;
+    private final Map<Budget, BooleanProperty> budgetCheckedMap = new HashMap<>();
+    private Button budgetDeleteAllBtn;
 
     private BorderPane buildBudgetTab() {
         budgetTable = new TableView<>();
         budgetTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        budgetDeleteAllBtn = new Button("Xóa tất cả");
+        budgetDeleteAllBtn.setVisible(false);
+        budgetDeleteAllBtn.setManaged(false);
         TableColumn<Budget, String> catCol = new TableColumn<>("Danh mục");
         catCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createObjectBinding(() ->
                 categoryNameMap != null ? categoryNameMap.getOrDefault(c.getValue().getCategoryId(), "#" + c.getValue().getCategoryId())
                         : String.valueOf(c.getValue().getCategoryId())));
         budgetTable.getColumns().addAll(
+                selectColumn(budgetTable, budgetCheckedMap, () -> updateBulkDeleteButton(budgetDeleteAllBtn, budgetCheckedMap)),
                 sttColumn(budgetTable),
                 catCol,
                 column("Tháng", "month"),
                 column("Năm", "year"),
                 moneyColumn("Giới hạn", "amountLimit")
         );
-        budgetData = FXCollections.observableArrayList(budgetService.list(currentUserId()));
+        List<Budget> initialBudgets = budgetService.list(currentUserId());
+        budgetData = FXCollections.observableArrayList(initialBudgets);
+        resetCheckedMap(budgetCheckedMap, initialBudgets, () -> updateBulkDeleteButton(budgetDeleteAllBtn, budgetCheckedMap));
         budgetTable.setItems(budgetData);
 
         ComboBox<Category> categoryBox = new ComboBox<>(FXCollections.observableArrayList(categoryService.list(currentUserId())));
@@ -541,6 +681,11 @@ public class MainApp extends Application {
                         Integer.parseInt(year.getText()));
                 refreshBudgetTable();
                 budgetTable.getSelectionModel().select(b);
+                categoryBox.getSelectionModel().clearSelection();
+                month.clear();
+                year.clear();
+                amount.clear();
+                budgetTable.getSelectionModel().clearSelection();
             } catch (Exception ex) {
                 alert("Không thêm được ngân sách: " + ex.getMessage());
             }
@@ -563,6 +708,11 @@ public class MainApp extends Application {
                     alert("Cập nhật thất bại");
                 }
                 refreshBudgetTable();
+                categoryBox.getSelectionModel().clearSelection();
+                month.clear();
+                year.clear();
+                amount.clear();
+                budgetTable.getSelectionModel().clearSelection();
             } catch (Exception ex) {
                 alert("Không sửa được ngân sách: " + ex.getMessage());
             }
@@ -580,6 +730,30 @@ public class MainApp extends Application {
                 alert("Xóa thất bại");
             }
             refreshBudgetTable();
+            categoryBox.getSelectionModel().clearSelection();
+            month.clear();
+            year.clear();
+            amount.clear();
+            budgetTable.getSelectionModel().clearSelection();
+        });
+
+        budgetDeleteAllBtn.setOnAction(e -> {
+            List<Budget> selected = checkedItems(budgetCheckedMap);
+            if (selected.isEmpty()) {
+                return;
+            }
+            if (!confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " ngân sách đã chọn?")) {
+                return;
+            }
+            for (Budget budget : selected) {
+                budgetService.delete(currentUserId(), budget.getId());
+            }
+            refreshBudgetTable();
+            categoryBox.getSelectionModel().clearSelection();
+            month.clear();
+            year.clear();
+            amount.clear();
+            budgetTable.getSelectionModel().clearSelection();
         });
 
         budgetTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -597,7 +771,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tháng"), month),
                 new HBox(6, new Label("Năm"), year),
                 new HBox(6, new Label("Giới hạn"), amount),
-                new HBox(6, addBudget, updateBudget, deleteBudget)
+                new HBox(6, addBudget, updateBudget, deleteBudget, budgetDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -690,6 +864,8 @@ public class MainApp extends Application {
 
     private TableView<Notification> notificationTable;
     private ObservableList<Notification> notificationData;
+    private final Map<Notification, BooleanProperty> notificationCheckedMap = new HashMap<>();
+    private Button notificationDeleteAllBtn;
 
     private TableView<Transaction> reportTxTable;
     private ObservableList<Transaction> reportTxData;
@@ -707,13 +883,19 @@ public class MainApp extends Application {
     private BorderPane buildNotificationTab() {
         notificationTable = new TableView<>();
         notificationTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
+        notificationDeleteAllBtn = new Button("Xóa tất cả");
+        notificationDeleteAllBtn.setVisible(false);
+        notificationDeleteAllBtn.setManaged(false);
         notificationTable.getColumns().addAll(
+                selectColumn(notificationTable, notificationCheckedMap, () -> updateBulkDeleteButton(notificationDeleteAllBtn, notificationCheckedMap)),
                 sttColumn(notificationTable),
                 column("Tiêu đề", "title"),
                 column("Nội dung", "message"),
                 column("Đã đọc", "read")
         );
-        notificationData = FXCollections.observableArrayList(notificationService.list(currentUserId()));
+        List<Notification> initialNotifications = notificationService.list(currentUserId());
+        notificationData = FXCollections.observableArrayList(initialNotifications);
+        resetCheckedMap(notificationCheckedMap, initialNotifications, () -> updateBulkDeleteButton(notificationDeleteAllBtn, notificationCheckedMap));
         notificationTable.setItems(notificationData);
 
         Button mark = new Button("Đánh dấu đã đọc");
@@ -725,11 +907,27 @@ public class MainApp extends Application {
             }
             notificationService.markAsRead(n.getId(), currentUserId());
             refreshNotificationTable();
+            notificationTable.getSelectionModel().clearSelection();
+        });
+
+        notificationDeleteAllBtn.setOnAction(e -> {
+            List<Notification> selected = checkedItems(notificationCheckedMap);
+            if (selected.isEmpty()) {
+                return;
+            }
+            if (!confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " thông báo đã chọn?")) {
+                return;
+            }
+            for (Notification notification : selected) {
+                notificationService.delete(notification.getId(), currentUserId());
+            }
+            refreshNotificationTable();
+            notificationTable.getSelectionModel().clearSelection();
         });
 
         BorderPane pane = new BorderPane();
         pane.setCenter(notificationTable);
-        pane.setBottom(new HBox(8, mark));
+        pane.setBottom(new HBox(8, mark, notificationDeleteAllBtn));
         BorderPane.setMargin(pane.getBottom(), new Insets(8));
         return pane;
     }
@@ -753,6 +951,59 @@ public class MainApp extends Application {
         col.setSortable(false);
         col.setMaxWidth(70);
         return col;
+    }
+
+    private <T> TableColumn<T, Boolean> selectColumn(TableView<T> table, Map<T, BooleanProperty> checkedMap, Runnable onChanged) {
+        TableColumn<T, Boolean> col = new TableColumn<>();
+        CheckBox checkAll = new CheckBox();
+        checkAll.selectedProperty().addListener((obs, oldV, newV) -> {
+            for (T item : table.getItems()) {
+                checkedMap.computeIfAbsent(item, k -> new SimpleBooleanProperty(false)).set(newV);
+            }
+            onChanged.run();
+            table.refresh();
+        });
+        col.setGraphic(checkAll);
+        col.setCellValueFactory(param ->
+                checkedMap.computeIfAbsent(param.getValue(), k -> {
+                    BooleanProperty p = new SimpleBooleanProperty(false);
+                    p.addListener((o, ov, nv) -> onChanged.run());
+                    return p;
+                }));
+        col.setCellFactory(CheckBoxTableCell.forTableColumn(col));
+        col.setEditable(true);
+        col.setSortable(false);
+        col.setMaxWidth(55);
+        table.setEditable(true);
+        return col;
+    }
+
+    private <T> void resetCheckedMap(Map<T, BooleanProperty> checkedMap, List<T> items, Runnable onChanged) {
+        checkedMap.clear();
+        for (T item : items) {
+            BooleanProperty p = new SimpleBooleanProperty(false);
+            p.addListener((o, ov, nv) -> onChanged.run());
+            checkedMap.put(item, p);
+        }
+    }
+
+    private <T> List<T> checkedItems(Map<T, BooleanProperty> checkedMap) {
+        return checkedMap.entrySet().stream()
+                .filter(e -> e.getValue().get())
+                .map(Map.Entry::getKey)
+                .toList();
+    }
+
+    private void updateBulkDeleteButton(Button btn, Map<?, BooleanProperty> checkedMap) {
+        boolean hasSelected = checkedMap.values().stream().anyMatch(BooleanProperty::get);
+        btn.setManaged(hasSelected);
+        btn.setVisible(hasSelected);
+    }
+
+    private boolean confirmDelete(String message) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
+        alert.setHeaderText("Xác nhận xóa");
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
     }
 
     private <T> TableColumn<T, BigDecimal> moneyColumn(String title, String property) {
@@ -827,21 +1078,30 @@ public class MainApp extends Application {
         Wallet walletFilter = txWalletFilterBox != null ? txWalletFilterBox.getValue() : null;
         String sortFilter = txSortFilterBox != null ? txSortFilterBox.getValue() : "Ngày giảm dần";
 
-        Comparator<Transaction> comparator = Comparator.comparing(Transaction::getTransactionDate).reversed();
+        Comparator<Transaction> comparator;
         if ("Ngày tăng dần".equals(sortFilter)) {
-            comparator = Comparator.comparing(Transaction::getTransactionDate);
+            comparator = Comparator.comparing(Transaction::getTransactionDate)
+                    .thenComparing(Transaction::getAmount, Comparator.nullsLast(Comparator.naturalOrder()));
         } else if ("Số tiền giảm dần".equals(sortFilter)) {
-            comparator = Comparator.comparing(Transaction::getAmount).reversed();
+            comparator = Comparator.comparing(Transaction::getAmount, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.reverseOrder()));
         } else if ("Số tiền tăng dần".equals(sortFilter)) {
-            comparator = Comparator.comparing(Transaction::getAmount);
+            comparator = Comparator.comparing(Transaction::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
+                    .thenComparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.naturalOrder()));
+        } else {
+            comparator = Comparator.comparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.reverseOrder()))
+                    .thenComparing(Transaction::getAmount, Comparator.nullsLast(Comparator.reverseOrder()));
         }
 
         List<Transaction> filtered = allTransactions.stream()
                 .filter(t -> "TẤT CẢ".equals(typeFilter) || t.getType().name().equals(typeFilter))
                 .filter(t -> walletFilter == null || walletFilter.getId() == 0 || t.getWalletId() == walletFilter.getId())
-                .sorted(comparator.thenComparing(Transaction::getTransactionDate).reversed())
+                .sorted(comparator)
                 .toList();
         transactionData.setAll(filtered);
+        if (transactionDeleteAllBtn != null) {
+            resetCheckedMap(transactionCheckedMap, filtered, () -> updateBulkDeleteButton(transactionDeleteAllBtn, transactionCheckedMap));
+        }
     }
 
     private void exportReportCsv(boolean byMonth) {
@@ -927,6 +1187,9 @@ public class MainApp extends Application {
             List<Wallet> wallets = walletService.listByUser(currentUserId());
             walletData.setAll(wallets);
             walletNameMap = wallets.stream().collect(Collectors.toMap(Wallet::getId, Wallet::getName));
+            if (walletDeleteAllBtn != null) {
+                resetCheckedMap(walletCheckedMap, wallets, () -> updateBulkDeleteButton(walletDeleteAllBtn, walletCheckedMap));
+            }
         }
     }
 
@@ -935,31 +1198,42 @@ public class MainApp extends Application {
             List<Category> categories = categoryService.list(currentUserId());
             categoryData.setAll(categories);
             categoryNameMap = categories.stream().collect(Collectors.toMap(Category::getId, Category::getName));
+            if (categoryDeleteAllBtn != null) {
+                resetCheckedMap(categoryCheckedMap, categories, () -> updateBulkDeleteButton(categoryDeleteAllBtn, categoryCheckedMap));
+            }
         }
     }
 
     private void refreshTransactionTableAndCombos() {
         allTransactions = transactionService.list(currentUserId());
-        if (transactionData != null) {
-            transactionData.setAll(allTransactions);
-        }
         if (txWalletBox != null && txCategoryBox != null) {
             refreshWalletAndCategory(txWalletBox, txCategoryBox);
         }
         if (txWalletFilterBox != null) {
             refreshTransactionFilterCombos();
         }
+        if (transactionData != null) {
+            applyTransactionFilter();
+        }
     }
 
     private void refreshBudgetTable() {
         if (budgetData != null) {
-            budgetData.setAll(budgetService.list(currentUserId()));
+            List<Budget> budgets = budgetService.list(currentUserId());
+            budgetData.setAll(budgets);
+            if (budgetDeleteAllBtn != null) {
+                resetCheckedMap(budgetCheckedMap, budgets, () -> updateBulkDeleteButton(budgetDeleteAllBtn, budgetCheckedMap));
+            }
         }
     }
 
     private void refreshNotificationTable() {
         if (notificationData != null) {
-            notificationData.setAll(notificationService.list(currentUserId()));
+            List<Notification> notifications = notificationService.list(currentUserId());
+            notificationData.setAll(notifications);
+            if (notificationDeleteAllBtn != null) {
+                resetCheckedMap(notificationCheckedMap, notifications, () -> updateBulkDeleteButton(notificationDeleteAllBtn, notificationCheckedMap));
+            }
         }
     }
 

@@ -29,4 +29,8 @@ public class NotificationService {
     public boolean markAsRead(int id, int userId) {
         return notificationRepository.markAsRead(id, userId);
     }
+
+    public boolean delete(int id, int userId) {
+        return notificationRepository.delete(id, userId);
+    }
 }

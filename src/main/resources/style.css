@@ -27,6 +27,10 @@ TableView {
     -fx-padding: 4;
 }
 
+.table-view .column-header .label {
+    -fx-alignment: CENTER-LEFT;
+}
+
 Button {
     -fx-background-color: linear-gradient(#4c8bf5, #356fe0);
     -fx-text-fill: white;

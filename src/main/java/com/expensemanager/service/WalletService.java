@@ -16,10 +16,14 @@ public class WalletService {
     }
 
     public Wallet create(int userId, String name, String type) {
+        return create(userId, name, type, BigDecimal.ZERO);
+    }
+
+    public Wallet create(int userId, String name, String type, BigDecimal initialBalance) {
         Wallet wallet = new Wallet();
         wallet.setUserId(userId);
         wallet.setName(name);
-        wallet.setBalance(BigDecimal.ZERO);
+        wallet.setBalance(initialBalance == null ? BigDecimal.ZERO : initialBalance);
         wallet.setType(Enum.valueOf(com.expensemanager.model.WalletType.class, type));
         return walletRepository.create(wallet);
     }

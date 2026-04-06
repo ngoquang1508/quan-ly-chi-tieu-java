@@ -59,6 +59,18 @@ public class NotificationRepository {
         }
     }
 
+    public boolean delete(int id, int userId) {
+        String sql = "DELETE FROM notifications WHERE id = ? AND user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete notification", e);
+        }
+    }
+
     private Notification mapRow(ResultSet rs) throws SQLException {
         LocalDateTime created = rs.getTimestamp("created_at").toLocalDateTime();
         return new Notification(

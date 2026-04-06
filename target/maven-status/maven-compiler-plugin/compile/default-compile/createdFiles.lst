@@ -1,6 +1,7 @@
 com\expensemanager\model\User.class
 com\expensemanager\controller\BudgetController.class
 com\expensemanager\repository\BudgetRepository.class
+com\expensemanager\MainApp$1.class
 com\expensemanager\model\Transaction.class
 com\expensemanager\repository\CategoryRepository.class
 com\expensemanager\service\WalletService.class

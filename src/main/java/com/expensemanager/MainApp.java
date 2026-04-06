@@ -4,6 +4,7 @@ import com.expensemanager.model.*;
 import com.expensemanager.repository.*;
 import com.expensemanager.service.*;
 import javafx.application.Application;
+import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -15,11 +16,17 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Callback;
 
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.text.NumberFormat;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +34,8 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 /**
  * JavaFX entry point: màn hình login/đăng ký đơn giản, sau đó TabPane cho từng chức năng.
@@ -202,7 +211,7 @@ public class MainApp extends Application {
         walletTable = new TableView<>();
         walletTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         walletTable.getColumns().addAll(
-                column("ID", "id"),
+                sttColumn(walletTable),
                 column("Tên", "name"),
                 column("Loại", "type"),
                 moneyColumn("Số dư", "balance")
@@ -282,7 +291,7 @@ public class MainApp extends Application {
         categoryTable = new TableView<>();
         categoryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         categoryTable.getColumns().addAll(
-                column("ID", "id"),
+                sttColumn(categoryTable),
                 column("Tên", "name"),
                 column("Loại", "type"),
                 column("Icon", "icon")
@@ -354,27 +363,45 @@ public class MainApp extends Application {
 
     private TableView<Transaction> transactionTable;
     private ObservableList<Transaction> transactionData;
+    private List<Transaction> allTransactions = new ArrayList<>();
     private ComboBox<Wallet> txWalletBox;
     private ComboBox<Category> txCategoryBox;
+    private ComboBox<String> txTypeFilterBox;
+    private ComboBox<Wallet> txWalletFilterBox;
+    private ComboBox<String> txSortFilterBox;
 
     private BorderPane buildTransactionTab() {
         transactionTable = new TableView<>();
         transactionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         transactionTable.getColumns().addAll(
-                column("ID", "id"),
+                sttColumn(transactionTable),
                 column("Ngày", "transactionDate"),
                 column("Loại", "type"),
                 moneyColumn("Số tiền", "amount"),
-                column("Ví", "walletId"),
-                column("Danh mục", "categoryId"),
+                mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
+                mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
                 column("Tiêu đề", "title")
         );
-        transactionData = FXCollections.observableArrayList(transactionService.list(currentUserId()));
+        allTransactions = transactionService.list(currentUserId());
+        transactionData = FXCollections.observableArrayList(allTransactions);
         transactionTable.setItems(transactionData);
 
         txWalletBox = new ComboBox<>();
         txCategoryBox = new ComboBox<>();
         refreshWalletAndCategory(txWalletBox, txCategoryBox);
+
+        txTypeFilterBox = new ComboBox<>(FXCollections.observableArrayList("TẤT CẢ", "EXPENSE", "INCOME"));
+        txTypeFilterBox.getSelectionModel().selectFirst();
+        txWalletFilterBox = new ComboBox<>();
+        txSortFilterBox = new ComboBox<>(FXCollections.observableArrayList(
+                "Ngày giảm dần", "Ngày tăng dần", "Số tiền giảm dần", "Số tiền tăng dần"
+        ));
+        txSortFilterBox.getSelectionModel().selectFirst();
+        refreshTransactionFilterCombos();
+
+        txTypeFilterBox.valueProperty().addListener((obs, o, n) -> applyTransactionFilter());
+        txWalletFilterBox.valueProperty().addListener((obs, o, n) -> applyTransactionFilter());
+        txSortFilterBox.valueProperty().addListener((obs, o, n) -> applyTransactionFilter());
 
         ComboBox<TransactionType> type = new ComboBox<>(FXCollections.observableArrayList(TransactionType.values()));
         type.getSelectionModel().select(TransactionType.EXPENSE);
@@ -397,6 +424,7 @@ public class MainApp extends Application {
                 tx.setTransactionDate(datePicker.getValue());
                 transactionService.add(tx);
                 refreshTransactionTableAndCombos();
+                applyTransactionFilter();
             } catch (Exception ex) {
                 alert("Không thêm được giao dịch: " + ex.getMessage());
             }
@@ -419,6 +447,7 @@ public class MainApp extends Application {
                 selected.setTransactionDate(datePicker.getValue());
                 transactionService.update(selected);
                 refreshTransactionTableAndCombos();
+                applyTransactionFilter();
             } catch (Exception ex) {
                 alert("Không sửa được: " + ex.getMessage());
             }
@@ -433,6 +462,7 @@ public class MainApp extends Application {
             }
             transactionService.delete(selected.getId(), currentUserId());
             refreshTransactionTableAndCombos();
+            applyTransactionFilter();
         });
 
         transactionTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -459,9 +489,18 @@ public class MainApp extends Application {
         );
         form.setPadding(new Insets(8));
 
+        HBox filterBar = new HBox(8,
+                new Label("Lọc loại"), txTypeFilterBox,
+                new Label("Ví"), txWalletFilterBox,
+                new Label("Sắp xếp"), txSortFilterBox
+        );
+        filterBar.setPadding(new Insets(8));
+
         BorderPane pane = new BorderPane();
+        pane.setTop(filterBar);
         pane.setCenter(transactionTable);
         pane.setBottom(form);
+        applyTransactionFilter();
         return pane;
     }
 
@@ -478,7 +517,7 @@ public class MainApp extends Application {
                 categoryNameMap != null ? categoryNameMap.getOrDefault(c.getValue().getCategoryId(), "#" + c.getValue().getCategoryId())
                         : String.valueOf(c.getValue().getCategoryId())));
         budgetTable.getColumns().addAll(
-                column("ID", "id"),
+                sttColumn(budgetTable),
                 catCol,
                 column("Tháng", "month"),
                 column("Năm", "year"),
@@ -492,19 +531,55 @@ public class MainApp extends Application {
         TextField year = new TextField(String.valueOf(LocalDate.now().getYear()));
         TextField amount = new TextField();
 
-        Button save = new Button("Đặt ngân sách");
-        save.setOnAction(e -> {
+        Button addBudget = new Button("Thêm");
+        addBudget.setOnAction(e -> {
             try {
                 Category cat = categoryBox.getValue();
-                Budget b = budgetService.setBudget(currentUserId(), cat.getId(),
+                Budget b = budgetService.create(currentUserId(), cat.getId(),
                         new BigDecimal(amount.getText()),
                         Integer.parseInt(month.getText()),
                         Integer.parseInt(year.getText()));
                 refreshBudgetTable();
                 budgetTable.getSelectionModel().select(b);
             } catch (Exception ex) {
-                alert("Không lưu được ngân sách: " + ex.getMessage());
+                alert("Không thêm được ngân sách: " + ex.getMessage());
             }
+        });
+
+        Button updateBudget = new Button("Sửa");
+        updateBudget.setOnAction(e -> {
+            Budget selected = budgetTable.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                alert("Chọn ngân sách để sửa");
+                return;
+            }
+            try {
+                Category cat = categoryBox.getValue();
+                boolean ok = budgetService.update(currentUserId(), selected.getId(), cat.getId(),
+                        new BigDecimal(amount.getText()),
+                        Integer.parseInt(month.getText()),
+                        Integer.parseInt(year.getText()));
+                if (!ok) {
+                    alert("Cập nhật thất bại");
+                }
+                refreshBudgetTable();
+            } catch (Exception ex) {
+                alert("Không sửa được ngân sách: " + ex.getMessage());
+            }
+        });
+
+        Button deleteBudget = new Button("Xóa");
+        deleteBudget.setOnAction(e -> {
+            Budget selected = budgetTable.getSelectionModel().getSelectedItem();
+            if (selected == null) {
+                alert("Chọn ngân sách để xóa");
+                return;
+            }
+            boolean ok = budgetService.delete(currentUserId(), selected.getId());
+            if (!ok) {
+                alert("Xóa thất bại");
+            }
+            refreshBudgetTable();
         });
 
         budgetTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -522,7 +597,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tháng"), month),
                 new HBox(6, new Label("Năm"), year),
                 new HBox(6, new Label("Giới hạn"), amount),
-                save
+                new HBox(6, addBudget, updateBudget, deleteBudget)
         );
         form.setPadding(new Insets(8));
 
@@ -561,12 +636,12 @@ public class MainApp extends Application {
         reportTxTable = new TableView<>();
         reportTxTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         reportTxTable.getColumns().addAll(
-                column("Ngay", "transactionDate"),
-                column("Loai", "type"),
-                moneyColumn("So tien", "amount"),
-                mappingColumn("Vi", Transaction::getWalletId, () -> walletNameMap, "Vi #"),
-                mappingColumn("Danh muc", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
-                column("Tieu de", "title")
+                column("Ngày", "transactionDate"),
+                column("Loại", "type"),
+                moneyColumn("Số tiền", "amount"),
+                mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
+                mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
+                column("Tiêu đề", "title")
         );
         reportTxData = FXCollections.observableArrayList();
         reportTxTable.setItems(reportTxData);
@@ -578,26 +653,31 @@ public class MainApp extends Application {
         reportMonthBox.valueProperty().addListener((obs, oldV, newV) -> refreshReportByFilter());
         reportYearBox.valueProperty().addListener((obs, oldV, newV) -> refreshReportByFilter());
 
-        VBox incomeCard = new VBox(4, new Label("Tong Thu nhap"), monthlyLabel);
+        VBox incomeCard = new VBox(4, new Label("Tổng Thu nhập"), monthlyLabel);
         incomeCard.setStyle("-fx-background-color: #E9FBEF; -fx-border-color: #4ADE80; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
 
-        VBox expenseCard = new VBox(4, new Label("Tong Chi tieu"), yearlyLabel);
+        VBox expenseCard = new VBox(4, new Label("Tổng Chi tiêu"), yearlyLabel);
         expenseCard.setStyle("-fx-background-color: #FEECEC; -fx-border-color: #F87171; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
 
-        VBox netCard = new VBox(4, new Label("So du thuan"), dailyLabel);
+        VBox netCard = new VBox(4, new Label("Số dư thuần"), dailyLabel);
         netCard.setStyle("-fx-background-color: #EEF5FF; -fx-border-color: #60A5FA; -fx-border-radius: 8; -fx-background-radius: 8; -fx-padding: 8;");
 
         Label topCatTitle = new Label("DM chi nhiều nhất");
         topCatTitle.setMinWidth(140);
         Label walletTotalTitle = new Label("Tổng số dư ví");
         walletTotalTitle.setMinWidth(140);
+        Button exportMonthBtn = new Button("Xuất CSV tháng");
+        exportMonthBtn.setOnAction(e -> exportReportCsv(true));
+        Button exportYearBtn = new Button("Xuất CSV năm");
+        exportYearBtn.setOnAction(e -> exportReportCsv(false));
 
         VBox box = new VBox(10,
                 new HBox(8, new Label("Tháng"), reportMonthBox, new Label("Năm"), reportYearBox),
                 new HBox(10, incomeCard, expenseCard, netCard),
                 new HBox(10, topCatTitle, topCatLabel),
                 new HBox(10, walletTotalTitle, totalWalletLabel),
-                new Label("Giao dich cua thang da chon:"),
+                new HBox(8, exportMonthBtn, exportYearBtn),
+                new Label("Giao dịch của tháng đã chọn:"),
                 reportTxTable
         );
         box.setPadding(new Insets(10));
@@ -628,7 +708,7 @@ public class MainApp extends Application {
         notificationTable = new TableView<>();
         notificationTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         notificationTable.getColumns().addAll(
-                column("ID", "id"),
+                sttColumn(notificationTable),
                 column("Tiêu đề", "title"),
                 column("Nội dung", "message"),
                 column("Đã đọc", "read")
@@ -663,6 +743,15 @@ public class MainApp extends Application {
     private <T> TableColumn<T, Object> column(String title, String property) {
         TableColumn<T, Object> col = new TableColumn<>(title);
         col.setCellValueFactory(new PropertyValueFactory<>(property));
+        return col;
+    }
+
+    private <T> TableColumn<T, Number> sttColumn(TableView<T> table) {
+        TableColumn<T, Number> col = new TableColumn<>("STT");
+        col.setCellValueFactory(cell ->
+                new ReadOnlyObjectWrapper<>(table.getItems().indexOf(cell.getValue()) + 1));
+        col.setSortable(false);
+        col.setMaxWidth(70);
         return col;
     }
 
@@ -717,6 +806,99 @@ public class MainApp extends Application {
         return vndFormat.format(value);
     }
 
+    private void refreshTransactionFilterCombos() {
+        Wallet allWallet = new Wallet();
+        allWallet.setId(0);
+        allWallet.setName("Tất cả");
+        allWallet.setType(WalletType.CASH);
+
+        List<Wallet> wallets = new ArrayList<>();
+        wallets.add(allWallet);
+        wallets.addAll(walletService.listByUser(currentUserId()));
+        txWalletFilterBox.setItems(FXCollections.observableArrayList(wallets));
+        txWalletFilterBox.getSelectionModel().selectFirst();
+    }
+
+    private void applyTransactionFilter() {
+        if (transactionData == null) {
+            return;
+        }
+        String typeFilter = txTypeFilterBox != null ? txTypeFilterBox.getValue() : "TẤT CẢ";
+        Wallet walletFilter = txWalletFilterBox != null ? txWalletFilterBox.getValue() : null;
+        String sortFilter = txSortFilterBox != null ? txSortFilterBox.getValue() : "Ngày giảm dần";
+
+        Comparator<Transaction> comparator = Comparator.comparing(Transaction::getTransactionDate).reversed();
+        if ("Ngày tăng dần".equals(sortFilter)) {
+            comparator = Comparator.comparing(Transaction::getTransactionDate);
+        } else if ("Số tiền giảm dần".equals(sortFilter)) {
+            comparator = Comparator.comparing(Transaction::getAmount).reversed();
+        } else if ("Số tiền tăng dần".equals(sortFilter)) {
+            comparator = Comparator.comparing(Transaction::getAmount);
+        }
+
+        List<Transaction> filtered = allTransactions.stream()
+                .filter(t -> "TẤT CẢ".equals(typeFilter) || t.getType().name().equals(typeFilter))
+                .filter(t -> walletFilter == null || walletFilter.getId() == 0 || t.getWalletId() == walletFilter.getId())
+                .sorted(comparator.thenComparing(Transaction::getTransactionDate).reversed())
+                .toList();
+        transactionData.setAll(filtered);
+    }
+
+    private void exportReportCsv(boolean byMonth) {
+        try {
+            int month = reportMonthBox.getValue() != null ? reportMonthBox.getValue() : LocalDate.now().getMonthValue();
+            int year = reportYearBox.getValue() != null ? reportYearBox.getValue() : LocalDate.now().getYear();
+            List<Transaction> source = transactionService.list(currentUserId()).stream()
+                    .filter(t -> byMonth ? (t.getTransactionDate().getMonthValue() == month && t.getTransactionDate().getYear() == year)
+                            : (t.getTransactionDate().getYear() == year))
+                    .sorted(Comparator.comparing(Transaction::getTransactionDate).reversed())
+                    .toList();
+
+            String period = byMonth ? String.format("%02d-%d", month, year) : String.valueOf(year);
+            StringBuilder sb = new StringBuilder();
+            sb.append("Period,").append(period).append("\n");
+            sb.append("Date,Type,Amount,Wallet,Category,Title,Note\n");
+            DateTimeFormatter df = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+            for (Transaction t : source) {
+                String walletName = walletNameMap.getOrDefault(t.getWalletId(), "Ví #" + t.getWalletId());
+                String catName = categoryNameMap.getOrDefault(t.getCategoryId(), "DM #" + t.getCategoryId());
+                sb.append(df.format(t.getTransactionDate())).append(",")
+                        .append(t.getType()).append(",")
+                        .append(t.getAmount()).append(",")
+                        .append(csvEscape(walletName)).append(",")
+                        .append(csvEscape(catName)).append(",")
+                        .append(csvEscape(t.getTitle())).append(",")
+                        .append(csvEscape(t.getNote()))
+                        .append("\n");
+            }
+
+            FileChooser chooser = new FileChooser();
+            chooser.setTitle(byMonth ? "Xuất báo cáo tháng" : "Xuất báo cáo năm");
+            chooser.setInitialFileName(byMonth ? "bao_cao_thang_" + period + ".csv" : "bao_cao_nam_" + period + ".csv");
+            chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("CSV", "*.csv"));
+            var file = chooser.showSaveDialog(primaryStage);
+            if (file != null) {
+                byte[] bom = {(byte) 0xEF, (byte) 0xBB, (byte) 0xBF};
+                byte[] content = sb.toString().getBytes(StandardCharsets.UTF_8);
+                byte[] output = new byte[bom.length + content.length];
+                System.arraycopy(bom, 0, output, 0, bom.length);
+                System.arraycopy(content, 0, output, bom.length, content.length);
+                Files.write(Path.of(file.getAbsolutePath()), output);
+                alert("Xuất file thành công: " + file.getName());
+            }
+        } catch (IOException ex) {
+            alert("Không xuất được file: " + ex.getMessage());
+        }
+    }
+
+    private String csvEscape(String value) {
+        if (value == null) {
+            return "";
+        }
+        String escaped = value.replace("\"", "\"\"");
+        return "\"" + escaped + "\"";
+    }
+
     private void refreshWalletAndCategory(ComboBox<Wallet> walletBox, ComboBox<Category> categoryBox) {
         List<Wallet> wallets = walletService.listByUser(currentUserId());
         walletBox.setItems(FXCollections.observableArrayList(wallets));
@@ -757,11 +939,15 @@ public class MainApp extends Application {
     }
 
     private void refreshTransactionTableAndCombos() {
+        allTransactions = transactionService.list(currentUserId());
         if (transactionData != null) {
-            transactionData.setAll(transactionService.list(currentUserId()));
+            transactionData.setAll(allTransactions);
         }
         if (txWalletBox != null && txCategoryBox != null) {
             refreshWalletAndCategory(txWalletBox, txCategoryBox);
+        }
+        if (txWalletFilterBox != null) {
+            refreshTransactionFilterCombos();
         }
     }
 
@@ -793,6 +979,10 @@ public class MainApp extends Application {
         if (reportMonthBox == null || reportYearBox == null) {
             return;
         }
+        walletNameMap = walletService.listByUser(currentUserId()).stream()
+                .collect(Collectors.toMap(Wallet::getId, Wallet::getName));
+        categoryNameMap = categoryService.list(currentUserId()).stream()
+                .collect(Collectors.toMap(Category::getId, Category::getName));
 
         int month = reportMonthBox.getValue() != null ? reportMonthBox.getValue() : LocalDate.now().getMonthValue();
         int year = reportYearBox.getValue() != null ? reportYearBox.getValue() : LocalDate.now().getYear();
@@ -811,7 +1001,7 @@ public class MainApp extends Application {
         }
         if (topCatLabel != null) {
             topCatLabel.setText(reportService.topExpenseCategory(currentUserId(), month, year)
-                    .orElse("Chua co du lieu"));
+                    .orElse("Chưa có dữ liệu"));
         }
         if (totalWalletLabel != null) {
             totalWalletLabel.setText(fmt(reportService.totalWalletBalance(currentUserId())));
@@ -825,5 +1015,3 @@ public class MainApp extends Application {
     }
 
 }
-
-

@@ -29,6 +29,31 @@ public class BudgetService {
         return budgetRepository.findByUser(userId);
     }
 
+    public Budget create(int userId, Integer categoryId, BigDecimal amount, int month, int year) {
+        Budget budget = new Budget();
+        budget.setUserId(userId);
+        budget.setCategoryId(categoryId);
+        budget.setAmountLimit(amount);
+        budget.setMonth(month);
+        budget.setYear(year);
+        return budgetRepository.create(budget);
+    }
+
+    public boolean update(int userId, int id, Integer categoryId, BigDecimal amount, int month, int year) {
+        Budget budget = new Budget();
+        budget.setId(id);
+        budget.setUserId(userId);
+        budget.setCategoryId(categoryId);
+        budget.setAmountLimit(amount);
+        budget.setMonth(month);
+        budget.setYear(year);
+        return budgetRepository.update(budget);
+    }
+
+    public boolean delete(int userId, int id) {
+        return budgetRepository.delete(id, userId);
+    }
+
     public Optional<Budget> find(int userId, Integer categoryId, int month, int year) {
         return budgetRepository.findByUserAndCategoryAndMonth(userId, categoryId, month, year);
     }

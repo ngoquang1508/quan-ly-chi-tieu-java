@@ -11,6 +11,10 @@ import java.util.Optional;
 
 public class BudgetRepository {
 
+    public Budget create(Budget budget) {
+        return insert(budget);
+    }
+
     public Budget saveOrUpdate(Budget budget) {
         Optional<Budget> existing = findByUserAndCategoryAndMonth(budget.getUserId(), budget.getCategoryId(),
                 budget.getMonth(), budget.getYear());
@@ -62,6 +66,38 @@ public class BudgetRepository {
             ps.executeUpdate();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to update budget", e);
+        }
+    }
+
+    public boolean update(Budget budget) {
+        String sql = "UPDATE budgets SET category_id = ?, amount_limit = ?, month = ?, year = ? WHERE id = ? AND user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            if (budget.getCategoryId() == null) {
+                ps.setNull(1, Types.INTEGER);
+            } else {
+                ps.setInt(1, budget.getCategoryId());
+            }
+            ps.setBigDecimal(2, budget.getAmountLimit());
+            ps.setInt(3, budget.getMonth());
+            ps.setInt(4, budget.getYear());
+            ps.setInt(5, budget.getId());
+            ps.setInt(6, budget.getUserId());
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to update budget by id", e);
+        }
+    }
+
+    public boolean delete(int id, int userId) {
+        String sql = "DELETE FROM budgets WHERE id = ? AND user_id = ?";
+        try (Connection conn = DBConnection.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, id);
+            ps.setInt(2, userId);
+            return ps.executeUpdate() > 0;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to delete budget", e);
         }
     }
 

@@ -1,0 +1,58 @@
+/* Nhe nhang, de nhin */
+root, .root {
+    -fx-font-family: "Segoe UI", "Inter", sans-serif;
+    -fx-background-color: linear-gradient(to bottom right, #f7f9fc, #e9eef7);
+}
+
+.header {
+    -fx-padding: 10;
+    -fx-alignment: CENTER_LEFT;
+}
+
+.title {
+    -fx-font-size: 20px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #1a365d;
+}
+
+TabPane {
+    -fx-padding: 8;
+}
+
+TableView {
+    -fx-background-color: white;
+    -fx-border-color: #dce3f0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+    -fx-padding: 4;
+}
+
+Button {
+    -fx-background-color: linear-gradient(#4c8bf5, #356fe0);
+    -fx-text-fill: white;
+    -fx-font-weight: 600;
+    -fx-padding: 6 12 6 12;
+    -fx-background-radius: 6;
+}
+
+Button:hover {
+    -fx-background-color: linear-gradient(#5b97f8, #417beb);
+}
+
+Label {
+    -fx-text-fill: #1f2937;
+}
+
+TextField, ComboBox, DatePicker {
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+    -fx-border-color: #cbd5e1;
+}
+
+.label-card {
+    -fx-background-color: white;
+    -fx-padding: 8;
+    -fx-border-color: #dce3f0;
+    -fx-border-radius: 8;
+    -fx-background-radius: 8;
+}

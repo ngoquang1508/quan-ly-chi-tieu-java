@@ -3,6 +3,7 @@ package com.expensemanager.service;
 import com.expensemanager.model.TransactionType;
 import com.expensemanager.model.Wallet;
 import com.expensemanager.repository.TransactionRepository;
+import com.expensemanager.repository.TransactionRepository.TopCategory;
 import com.expensemanager.repository.WalletRepository;
 
 import java.math.BigDecimal;
@@ -44,7 +45,7 @@ public class ReportService {
         return transactionRepository.totalByTypeAndYear(userId, TransactionType.EXPENSE, year);
     }
 
-    public Optional<String> topExpenseCategory(int userId, int month, int year) {
+    public Optional<TopCategory> topExpenseCategory(int userId, int month, int year) {
         return transactionRepository.topExpenseCategoryName(userId, month, year);
     }
 

@@ -205,22 +205,31 @@ public class TransactionRepository {
         }
     }
 
-    public Optional<String> topExpenseCategoryName(int userId, int month, int year) {
+    public record TopCategory(String name, BigDecimal total) {}    
+
+    public Optional<TopCategory> topExpenseCategoryName(int userId, int month, int year) {
         String sql = "SELECT c.name, SUM(t.amount) AS total " +
                 "FROM transactions t JOIN categories c ON t.category_id = c.id " +
                 "WHERE t.user_id = ? AND t.type = 'EXPENSE' AND MONTH(t.transaction_date) = ? AND YEAR(t.transaction_date) = ? " +
                 "GROUP BY c.name ORDER BY total DESC LIMIT 1";
+
         try (Connection conn = DBConnection.getConnection();
-             PreparedStatement ps = conn.prepareStatement(sql)) {
+            PreparedStatement ps = conn.prepareStatement(sql)) {
+
             ps.setInt(1, userId);
             ps.setInt(2, month);
             ps.setInt(3, year);
+
             try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
-                    return Optional.of(rs.getString("name") + " (" + rs.getBigDecimal("total") + ")");
+                    return Optional.of(new TopCategory(
+                            rs.getString("name"),
+                            rs.getBigDecimal("total")
+                    ));
                 }
             }
             return Optional.empty();
+
         } catch (SQLException e) {
             throw new RuntimeException("Failed to fetch top expense category", e);
         }

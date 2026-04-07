@@ -16,6 +16,32 @@ public class AuthService {
     }
 
     public boolean register(String username, String password, String email, String fullName) {
+        // validate input
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Tài khoản không hợp lệ");
+        }
+
+        if (email == null || email.isBlank()) {
+            throw new IllegalArgumentException("Email không hợp lệ");
+        }
+
+        if (!email.matches("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$")) {
+            throw new IllegalArgumentException("Email sai định dạng");
+        }
+
+        if (fullName == null || fullName.isBlank()) {
+            throw new IllegalArgumentException("Họ tên không hợp lệ");
+        }
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Mật khẩu không hợp lệ");
+        }
+
+        if (password.length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu phải >= 6 ký tự");
+        }
+
+        //
         if (userRepository.existsByUsernameOrEmail(username, email)) {
             return false;
         }
@@ -29,6 +55,14 @@ public class AuthService {
     }
 
     public boolean login(String username, String password) {
+        if (username == null || username.isBlank()) {
+            throw new IllegalArgumentException("Tài khoản không hợp lệ");
+        }
+
+        if (password == null || password.isBlank()) {
+            throw new IllegalArgumentException("Mật khẩu không hợp lệ");
+        }
+        
         String hash = PasswordUtil.hashPassword(password);
         Optional<User> user = userRepository.findByUsernameAndPassword(username, hash);
         user.ifPresent(value -> currentUser = value);

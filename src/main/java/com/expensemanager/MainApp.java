@@ -275,10 +275,7 @@ public class MainApp extends Application {
                 alert("Không thể cập nhật");
             }
             refreshWalletTable();
-            name.clear();
-            initialBalance.clear();
-            type.getSelectionModel().select(WalletType.CASH);
-            walletTable.getSelectionModel().clearSelection();
+            resetWalletForm(name, initialBalance, type);
         });
 
 
@@ -294,10 +291,7 @@ public class MainApp extends Application {
                 walletService.delete(currentUserId(), wallet.getId());
             }
             refreshWalletTable();
-            name.clear();
-            initialBalance.clear();
-            type.getSelectionModel().select(WalletType.CASH);
-            walletTable.getSelectionModel().clearSelection();
+            resetWalletForm(name, initialBalance, type);
         });
 
         walletTable.getSelectionModel().selectedItemProperty().addListener((obs, oldV, newV) -> {
@@ -375,10 +369,7 @@ public class MainApp extends Application {
             boolean ok = categoryService.update(currentUserId(), selected.getId(), name.getText(), type.getValue(), icon.getText());
             if (!ok) alert("Cập nhật thất bại");
             refreshCategoryTable();
-            name.clear();
-            icon.clear();
-            type.getSelectionModel().select(CategoryType.EXPENSE);
-            categoryTable.getSelectionModel().clearSelection();
+            resetCategoryForm(name, icon, type);
         });
 
 
@@ -394,10 +385,7 @@ public class MainApp extends Application {
                 categoryService.delete(currentUserId(), category.getId());
             }
             refreshCategoryTable();
-            name.clear();
-            icon.clear();
-            type.getSelectionModel().select(CategoryType.EXPENSE);
-            categoryTable.getSelectionModel().clearSelection();
+            resetCategoryForm(name, icon, type);
         });
 
         categoryTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
@@ -1099,6 +1087,35 @@ public class MainApp extends Application {
         grid.setVgap(10);
         grid.setPadding(new Insets(16));
         return grid;
+    }
+
+    private void resetWalletForm(TextField name, TextField initialBalance, ComboBox<WalletType> type) {
+        resetWalletForm(name, initialBalance, type);
+    }
+
+    private void resetCategoryForm(TextField name, TextField icon, ComboBox<CategoryType> type) {
+        resetCategoryForm(name, icon, type);
+    }
+
+    private void resetTransactionForm(TextField amount, TextField title, TextField note,
+                                      DatePicker datePicker, ComboBox<TransactionType> type,
+                                      ComboBox<Wallet> walletBox, ComboBox<Category> categoryBox) {
+        amount.clear();
+        title.clear();
+        note.clear();
+        datePicker.setValue(LocalDate.now());
+        type.getSelectionModel().select(TransactionType.EXPENSE);
+        if (!walletBox.getItems().isEmpty()) walletBox.getSelectionModel().selectFirst();
+        if (!categoryBox.getItems().isEmpty()) categoryBox.getSelectionModel().selectFirst();
+        transactionTable.getSelectionModel().clearSelection();
+    }
+
+    private void resetBudgetForm(ComboBox<Category> categoryBox, TextField month, TextField year, TextField amount) {
+        categoryBox.getSelectionModel().clearSelection();
+        month.clear();
+        year.clear();
+        amount.clear();
+        budgetTable.getSelectionModel().clearSelection();
     }
 
     private void alert(String msg) {

@@ -164,9 +164,6 @@ public class TransactionService {
         if (tx.getType() != TransactionType.EXPENSE) {
             return Optional.empty();
         }
-        if (hasBudgetLimit(tx)) {
-            return Optional.empty();
-        }
         Optional<Wallet> walletOpt = walletRepository.findById(tx.getWalletId(), tx.getUserId());
         if (walletOpt.isEmpty()) {
             return Optional.empty();
@@ -182,9 +179,6 @@ public class TransactionService {
         if (tx.getType() != TransactionType.EXPENSE) {
             return Optional.empty();
         }
-        if (hasBudgetLimit(tx)) {
-            return Optional.empty();
-        }
         Optional<Wallet> walletOpt = walletRepository.findById(tx.getWalletId(), tx.getUserId());
         if (walletOpt.isEmpty()) {
             return Optional.empty();
@@ -198,9 +192,6 @@ public class TransactionService {
 
     private Optional<String> buildWalletOverdrawnMessageBeforeUpdate(Transaction tx, Transaction existing) {
         if (tx.getType() != TransactionType.EXPENSE) {
-            return Optional.empty();
-        }
-        if (hasBudgetLimit(tx)) {
             return Optional.empty();
         }
         Optional<Wallet> walletOpt = walletRepository.findById(tx.getWalletId(), tx.getUserId());

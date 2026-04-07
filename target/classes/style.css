@@ -31,6 +31,26 @@ TableView {
     -fx-alignment: CENTER-LEFT;
 }
 
+.table-view .table-cell {
+    -fx-alignment: CENTER-LEFT;
+}
+
+.main-nav-tabs .tab,
+.main-nav-tabs > .tab-header-area > .headers-region > .tab,
+.main-nav-tabs:top > .tab-header-area > .headers-region > .tab {
+    -fx-pref-width: 120px;
+    -fx-min-width: 120px;
+    -fx-max-width: 120px;
+    -fx-pref-height: 36px;
+    -fx-min-height: 36px;
+    -fx-max-height: 36px;
+}
+
+.main-nav-tabs .tab-header-area .tab-label {
+    -fx-font-weight: 600;
+    -fx-alignment: CENTER;
+}
+
 Button {
     -fx-background-color: linear-gradient(#4c8bf5, #356fe0);
     -fx-text-fill: white;

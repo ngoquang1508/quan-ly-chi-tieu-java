@@ -18,10 +18,13 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.util.Callback;
+import javafx.util.StringConverter;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -42,7 +45,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 
 /**
- * JavaFX entry point: màn hình login/đăng ký đơn giản, sau đó TabPane cho từng chức năng.
+ * JavaFX entry point.
  */
 public class MainApp extends Application {
 
@@ -92,6 +95,7 @@ public class MainApp extends Application {
     private void showAuthScene() {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.getStyleClass().add("main-nav-tabs");
 
         tabs.getTabs().add(new Tab("Đăng nhập", buildLoginPane()));
         tabs.getTabs().add(new Tab("Đăng ký", buildRegisterPane()));
@@ -156,6 +160,7 @@ public class MainApp extends Application {
     private void showDashboard() {
         TabPane tabs = new TabPane();
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
+        tabs.getStyleClass().add("main-nav-tabs");
 
         Tab walletTab = new Tab("Ví", buildWalletTab());
         Tab categoryTab = new Tab("Danh mục", buildCategoryTab());
@@ -175,7 +180,12 @@ public class MainApp extends Application {
         BorderPane root = new BorderPane();
         Label title = new Label("Expense Manager");
         title.getStyleClass().add("title");
-        HBox header = new HBox(12, title, new Label("Xin chào " + authService.getCurrentUser().getUsername()), logoutBtn);
+        Label greeting = new Label("Xin chào " + authService.getCurrentUser().getUsername());
+        Region spacer = new Region();
+        HBox.setHgrow(spacer, Priority.ALWAYS);
+        HBox rightBox = new HBox(10, greeting, logoutBtn);
+        rightBox.setStyle("-fx-alignment: CENTER-RIGHT;");
+        HBox header = new HBox(12, title, spacer, rightBox);
         header.getStyleClass().add("header");
         root.setCenter(tabs);
         root.setTop(header);
@@ -185,7 +195,7 @@ public class MainApp extends Application {
         scene.getStylesheets().add(getClass().getResource("/style.css").toExternalForm());
         primaryStage.setScene(scene);
 
-        // Auto refresh when switch tab to keep data mới nhất
+        // Auto refresh when switching tabs
         walletTab.setOnSelectionChanged(e -> {
             if (walletTab.isSelected()) refreshWalletTable();
         });
@@ -216,7 +226,7 @@ public class MainApp extends Application {
     private BorderPane buildWalletTab() {
         walletTable = new TableView<>();
         walletTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        walletDeleteAllBtn = new Button("Xóa tất cả");
+        walletDeleteAllBtn = new Button("Xóa");
         walletDeleteAllBtn.setVisible(false);
         walletDeleteAllBtn.setManaged(false);
         walletTable.getColumns().addAll(
@@ -271,20 +281,6 @@ public class MainApp extends Application {
             walletTable.getSelectionModel().clearSelection();
         });
 
-        Button delete = new Button("Xóa");
-        delete.setOnAction(e -> {
-            Wallet selected = walletTable.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                alert("Chọn ví để xóa");
-                return;
-            }
-            walletService.delete(currentUserId(), selected.getId());
-            refreshWalletTable();
-            name.clear();
-            initialBalance.clear();
-            type.getSelectionModel().select(WalletType.CASH);
-            walletTable.getSelectionModel().clearSelection();
-        });
 
         walletDeleteAllBtn.setOnAction(e -> {
             List<Wallet> selected = checkedItems(walletCheckedMap);
@@ -315,7 +311,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tên"), name),
                 new HBox(6, new Label("Số dư ban đầu"), initialBalance),
                 new HBox(6, new Label("Loại"), type),
-                new HBox(6, add, update, delete, walletDeleteAllBtn)
+                new HBox(6, add, update, walletDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -335,7 +331,7 @@ public class MainApp extends Application {
     private BorderPane buildCategoryTab() {
         categoryTable = new TableView<>();
         categoryTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        categoryDeleteAllBtn = new Button("Xóa tất cả");
+        categoryDeleteAllBtn = new Button("Xóa");
         categoryDeleteAllBtn.setVisible(false);
         categoryDeleteAllBtn.setManaged(false);
         categoryTable.getColumns().addAll(
@@ -385,20 +381,6 @@ public class MainApp extends Application {
             categoryTable.getSelectionModel().clearSelection();
         });
 
-        Button delete = new Button("Xóa");
-        delete.setOnAction(e -> {
-            Category selected = categoryTable.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                alert("Chọn danh mục để xóa");
-                return;
-            }
-            categoryService.delete(currentUserId(), selected.getId());
-            refreshCategoryTable();
-            name.clear();
-            icon.clear();
-            type.getSelectionModel().select(CategoryType.EXPENSE);
-            categoryTable.getSelectionModel().clearSelection();
-        });
 
         categoryDeleteAllBtn.setOnAction(e -> {
             List<Category> selected = checkedItems(categoryCheckedMap);
@@ -430,7 +412,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tên"), name),
                 new HBox(6, new Label("Loại"), type),
                 new HBox(6, new Label("Icon"), icon),
-                new HBox(6, add, update, delete, categoryDeleteAllBtn)
+                new HBox(6, add, update, categoryDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -454,15 +436,15 @@ public class MainApp extends Application {
     private BorderPane buildTransactionTab() {
         transactionTable = new TableView<>();
         transactionTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        transactionDeleteAllBtn = new Button("Xóa tất cả");
+        transactionDeleteAllBtn = new Button("Xóa");
         transactionDeleteAllBtn.setVisible(false);
         transactionDeleteAllBtn.setManaged(false);
         transactionTable.getColumns().addAll(
                 selectColumn(transactionTable, transactionCheckedMap, () -> updateBulkDeleteButton(transactionDeleteAllBtn, transactionCheckedMap)),
                 sttColumn(transactionTable),
                 column("Ngày", "transactionDate"),
-                column("Loại", "type"),
-                moneyColumn("Số tiền", "amount"),
+                txTypeColumn("Loại"),
+                txAmountColumn("Số tiền"),
                 mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
                 mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
                 column("Tiêu đề", "title")
@@ -476,7 +458,7 @@ public class MainApp extends Application {
         txCategoryBox = new ComboBox<>();
         refreshWalletAndCategory(txWalletBox, txCategoryBox);
 
-        txTypeFilterBox = new ComboBox<>(FXCollections.observableArrayList("TẤT CẢ", "EXPENSE", "INCOME"));
+        txTypeFilterBox = new ComboBox<>(FXCollections.observableArrayList("TẤT CẢ", "Thu nhập", "Chi tiêu"));
         txTypeFilterBox.getSelectionModel().selectFirst();
         txWalletFilterBox = new ComboBox<>();
         txSortFilterBox = new ComboBox<>(FXCollections.observableArrayList(
@@ -508,7 +490,9 @@ public class MainApp extends Application {
                 tx.setTitle(title.getText());
                 tx.setNote(note.getText());
                 tx.setTransactionDate(datePicker.getValue());
-                transactionService.add(tx);
+                Optional<String> walletWarning = transactionService.walletOverdrawnWarningBeforeAdd(tx);
+                Transaction savedTx = transactionService.add(tx);
+                walletWarning.ifPresent(this::alert);
                 refreshTransactionTableAndCombos();
                 applyTransactionFilter();
                 amount.clear();
@@ -518,6 +502,8 @@ public class MainApp extends Application {
                 type.getSelectionModel().select(TransactionType.EXPENSE);
                 if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
                 if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
+            } catch (IllegalArgumentException ex) {
+                alert(ex.getMessage());
             } catch (Exception ex) {
                 alert("Không thêm được giao dịch: " + ex.getMessage());
             }
@@ -538,7 +524,13 @@ public class MainApp extends Application {
                 selected.setTitle(title.getText());
                 selected.setNote(note.getText());
                 selected.setTransactionDate(datePicker.getValue());
-                transactionService.update(selected);
+                Optional<String> walletWarning = transactionService.walletOverdrawnWarningBeforeUpdate(selected);
+                boolean updated = transactionService.update(selected);
+                if (!updated) {
+                    alert("Khong sua duoc giao dich");
+                    return;
+                }
+                walletWarning.ifPresent(this::alert);
                 refreshTransactionTableAndCombos();
                 applyTransactionFilter();
                 amount.clear();
@@ -549,30 +541,13 @@ public class MainApp extends Application {
                 if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
                 if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
                 transactionTable.getSelectionModel().clearSelection();
+            } catch (IllegalArgumentException ex) {
+                alert(ex.getMessage());
             } catch (Exception ex) {
                 alert("Không sửa được: " + ex.getMessage());
             }
         });
 
-        Button delete = new Button("Xóa");
-        delete.setOnAction(e -> {
-            Transaction selected = transactionTable.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                alert("Chọn giao dịch để xóa");
-                return;
-            }
-            transactionService.delete(selected.getId(), currentUserId());
-            refreshTransactionTableAndCombos();
-            applyTransactionFilter();
-            amount.clear();
-            title.clear();
-            note.clear();
-            datePicker.setValue(LocalDate.now());
-            type.getSelectionModel().select(TransactionType.EXPENSE);
-            if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
-            if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
-            transactionTable.getSelectionModel().clearSelection();
-        });
 
         transactionDeleteAllBtn.setOnAction(e -> {
             List<Transaction> selected = checkedItems(transactionCheckedMap);
@@ -617,7 +592,7 @@ public class MainApp extends Application {
                 new HBox(6, new Label("Tiêu đề"), title),
                 new HBox(6, new Label("Ghi chú"), note),
                 new HBox(6, new Label("Ngày"), datePicker),
-                new HBox(6, add, update, delete, transactionDeleteAllBtn)
+                new HBox(6, add, update, transactionDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -642,11 +617,12 @@ public class MainApp extends Application {
     private ObservableList<Budget> budgetData;
     private final Map<Budget, BooleanProperty> budgetCheckedMap = new HashMap<>();
     private Button budgetDeleteAllBtn;
+    private ComboBox<Category> budgetCategoryBox;
 
     private BorderPane buildBudgetTab() {
         budgetTable = new TableView<>();
         budgetTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        budgetDeleteAllBtn = new Button("Xóa tất cả");
+        budgetDeleteAllBtn = new Button("Xóa");
         budgetDeleteAllBtn.setVisible(false);
         budgetDeleteAllBtn.setManaged(false);
         TableColumn<Budget, String> catCol = new TableColumn<>("Danh mục");
@@ -666,7 +642,8 @@ public class MainApp extends Application {
         resetCheckedMap(budgetCheckedMap, initialBudgets, () -> updateBulkDeleteButton(budgetDeleteAllBtn, budgetCheckedMap));
         budgetTable.setItems(budgetData);
 
-        ComboBox<Category> categoryBox = new ComboBox<>(FXCollections.observableArrayList(categoryService.list(currentUserId())));
+        budgetCategoryBox = new ComboBox<>();
+        refreshBudgetCategoryBox();
         TextField month = new TextField("4");
         TextField year = new TextField(String.valueOf(LocalDate.now().getYear()));
         TextField amount = new TextField();
@@ -674,14 +651,18 @@ public class MainApp extends Application {
         Button addBudget = new Button("Thêm");
         addBudget.setOnAction(e -> {
             try {
-                Category cat = categoryBox.getValue();
+                Category cat = budgetCategoryBox.getValue();
+                if (cat == null) {
+                    alert("Chọn danh mục trước khi thêm ngân sách");
+                    return;
+                }
                 Budget b = budgetService.create(currentUserId(), cat.getId(),
                         new BigDecimal(amount.getText()),
                         Integer.parseInt(month.getText()),
                         Integer.parseInt(year.getText()));
                 refreshBudgetTable();
                 budgetTable.getSelectionModel().select(b);
-                categoryBox.getSelectionModel().clearSelection();
+                budgetCategoryBox.getSelectionModel().clearSelection();
                 month.clear();
                 year.clear();
                 amount.clear();
@@ -699,7 +680,11 @@ public class MainApp extends Application {
                 return;
             }
             try {
-                Category cat = categoryBox.getValue();
+                Category cat = budgetCategoryBox.getValue();
+                if (cat == null) {
+                    alert("Chọn danh mục trước khi sửa ngân sách");
+                    return;
+                }
                 boolean ok = budgetService.update(currentUserId(), selected.getId(), cat.getId(),
                         new BigDecimal(amount.getText()),
                         Integer.parseInt(month.getText()),
@@ -708,7 +693,7 @@ public class MainApp extends Application {
                     alert("Cập nhật thất bại");
                 }
                 refreshBudgetTable();
-                categoryBox.getSelectionModel().clearSelection();
+                budgetCategoryBox.getSelectionModel().clearSelection();
                 month.clear();
                 year.clear();
                 amount.clear();
@@ -718,24 +703,6 @@ public class MainApp extends Application {
             }
         });
 
-        Button deleteBudget = new Button("Xóa");
-        deleteBudget.setOnAction(e -> {
-            Budget selected = budgetTable.getSelectionModel().getSelectedItem();
-            if (selected == null) {
-                alert("Chọn ngân sách để xóa");
-                return;
-            }
-            boolean ok = budgetService.delete(currentUserId(), selected.getId());
-            if (!ok) {
-                alert("Xóa thất bại");
-            }
-            refreshBudgetTable();
-            categoryBox.getSelectionModel().clearSelection();
-            month.clear();
-            year.clear();
-            amount.clear();
-            budgetTable.getSelectionModel().clearSelection();
-        });
 
         budgetDeleteAllBtn.setOnAction(e -> {
             List<Budget> selected = checkedItems(budgetCheckedMap);
@@ -749,7 +716,7 @@ public class MainApp extends Application {
                 budgetService.delete(currentUserId(), budget.getId());
             }
             refreshBudgetTable();
-            categoryBox.getSelectionModel().clearSelection();
+            budgetCategoryBox.getSelectionModel().clearSelection();
             month.clear();
             year.clear();
             amount.clear();
@@ -758,7 +725,7 @@ public class MainApp extends Application {
 
         budgetTable.getSelectionModel().selectedItemProperty().addListener((obs, o, n) -> {
             if (n != null) {
-                categoryBox.getSelectionModel().select(categoryBox.getItems().stream()
+                budgetCategoryBox.getSelectionModel().select(budgetCategoryBox.getItems().stream()
                         .filter(c -> c.getId() == n.getCategoryId()).findFirst().orElse(null));
                 month.setText(String.valueOf(n.getMonth()));
                 year.setText(String.valueOf(n.getYear()));
@@ -767,11 +734,11 @@ public class MainApp extends Application {
         });
 
         VBox form = new VBox(8,
-                new HBox(6, new Label("Danh mục"), categoryBox),
+                new HBox(6, new Label("Danh mục"), budgetCategoryBox),
                 new HBox(6, new Label("Tháng"), month),
                 new HBox(6, new Label("Năm"), year),
                 new HBox(6, new Label("Giới hạn"), amount),
-                new HBox(6, addBudget, updateBudget, deleteBudget, budgetDeleteAllBtn)
+                new HBox(6, addBudget, updateBudget, budgetDeleteAllBtn)
         );
         form.setPadding(new Insets(8));
 
@@ -784,8 +751,24 @@ public class MainApp extends Application {
     /* ---------- Report UI ---------- */
 
     private BorderPane buildReportTab() {
-        reportMonthBox = new ComboBox<>(FXCollections.observableArrayList(
-                java.util.stream.IntStream.rangeClosed(1, 12).boxed().toList()));
+        List<Integer> monthOptions = new ArrayList<>();
+        monthOptions.add(null);
+        monthOptions.addAll(java.util.stream.IntStream.rangeClosed(1, 12).boxed().toList());
+        reportMonthBox = new ComboBox<>(FXCollections.observableArrayList(monthOptions));
+        reportMonthBox.setConverter(new StringConverter<>() {
+            @Override
+            public String toString(Integer object) {
+                return object == null ? "" : String.valueOf(object);
+            }
+
+            @Override
+            public Integer fromString(String string) {
+                if (string == null || string.isBlank()) {
+                    return null;
+                }
+                return Integer.parseInt(string.trim());
+            }
+        });
         reportMonthBox.getSelectionModel().select(Integer.valueOf(LocalDate.now().getMonthValue()));
 
         reportYearBox = new ComboBox<>(FXCollections.observableArrayList(availableReportYears()));
@@ -811,8 +794,8 @@ public class MainApp extends Application {
         reportTxTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
         reportTxTable.getColumns().addAll(
                 column("Ngày", "transactionDate"),
-                column("Loại", "type"),
-                moneyColumn("Số tiền", "amount"),
+                txTypeColumn("Loại"),
+                txAmountColumn("Số tiền"),
                 mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
                 mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
                 column("Tiêu đề", "title")
@@ -883,7 +866,7 @@ public class MainApp extends Application {
     private BorderPane buildNotificationTab() {
         notificationTable = new TableView<>();
         notificationTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY);
-        notificationDeleteAllBtn = new Button("Xóa tất cả");
+        notificationDeleteAllBtn = new Button("Xóa");
         notificationDeleteAllBtn.setVisible(false);
         notificationDeleteAllBtn.setManaged(false);
         notificationTable.getColumns().addAll(
@@ -891,7 +874,7 @@ public class MainApp extends Application {
                 sttColumn(notificationTable),
                 column("Tiêu đề", "title"),
                 column("Nội dung", "message"),
-                column("Đã đọc", "read")
+                readStatusColumn("Đã đọc")
         );
         List<Notification> initialNotifications = notificationService.list(currentUserId());
         notificationData = FXCollections.observableArrayList(initialNotifications);
@@ -1035,9 +1018,79 @@ public class MainApp extends Application {
             protected void updateItem(BigDecimal item, boolean empty) {
                 super.updateItem(item, empty);
                 setText(empty || item == null ? null : fmt(item));
-                setStyle("-fx-alignment: CENTER-RIGHT;");
+                setStyle("-fx-alignment: CENTER-LEFT;");
             }
         };
+    }
+
+    private TableColumn<Notification, Boolean> readStatusColumn(String title) {
+        TableColumn<Notification, Boolean> col = new TableColumn<>(title);
+        col.setCellValueFactory(new PropertyValueFactory<>("read"));
+        col.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item) {
+                    setText(null);
+                    setStyle("-fx-alignment: CENTER-LEFT;");
+                    return;
+                }
+                setText("🔴");
+                setStyle("-fx-alignment: CENTER-LEFT;");
+            }
+        });
+        return col;
+    }
+
+    private TableColumn<Transaction, TransactionType> txTypeColumn(String title) {
+        TableColumn<Transaction, TransactionType> col = new TableColumn<>(title);
+        col.setCellValueFactory(new PropertyValueFactory<>("type"));
+        col.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(TransactionType item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("-fx-alignment: CENTER-LEFT;");
+                    return;
+                }
+                boolean income = item == TransactionType.INCOME;
+                setText(income ? "Thu nhập" : "Chi tiêu");
+                setStyle("-fx-alignment: CENTER-LEFT; -fx-font-weight: 700; -fx-text-fill: "
+                        + (income ? "#16a34a;" : "#dc2626;"));
+            }
+        });
+        return col;
+    }
+
+    private TableColumn<Transaction, BigDecimal> txAmountColumn(String title) {
+        TableColumn<Transaction, BigDecimal> col = new TableColumn<>(title);
+        col.setCellValueFactory(new PropertyValueFactory<>("amount"));
+        col.setCellFactory(column -> new TableCell<>() {
+            @Override
+            protected void updateItem(BigDecimal item, boolean empty) {
+                super.updateItem(item, empty);
+                Transaction tx = getTableRow() == null ? null : getTableRow().getItem();
+                if (empty || item == null || tx == null || tx.getType() == null) {
+                    setText(null);
+                    setStyle("-fx-alignment: CENTER-LEFT;");
+                    return;
+                }
+                boolean income = tx.getType() == TransactionType.INCOME;
+                String sign = income ? "+" : "-";
+                setText(sign + fmtCompactVnd(item.abs()));
+                setStyle("-fx-alignment: CENTER-LEFT; -fx-font-weight: 700; -fx-text-fill: "
+                        + (income ? "#16a34a;" : "#dc2626;"));
+            }
+        });
+        return col;
+    }
+
+    private String fmtCompactVnd(BigDecimal value) {
+        NumberFormat numberFormat = NumberFormat.getNumberInstance(new Locale("vi", "VN"));
+        numberFormat.setMaximumFractionDigits(0);
+        numberFormat.setMinimumFractionDigits(0);
+        return numberFormat.format(value) + "đ";
     }
 
     private GridPane baseGrid() {
@@ -1060,7 +1113,7 @@ public class MainApp extends Application {
     private void refreshTransactionFilterCombos() {
         Wallet allWallet = new Wallet();
         allWallet.setId(0);
-        allWallet.setName("Tất cả");
+        allWallet.setName("TẤT CẢ");
         allWallet.setType(WalletType.CASH);
 
         List<Wallet> wallets = new ArrayList<>();
@@ -1094,7 +1147,18 @@ public class MainApp extends Application {
         }
 
         List<Transaction> filtered = allTransactions.stream()
-                .filter(t -> "TẤT CẢ".equals(typeFilter) || t.getType().name().equals(typeFilter))
+                .filter(t -> {
+                    if ("TẤT CẢ".equals(typeFilter)) {
+                        return true;
+                    }
+                    if ("Thu nhập".equals(typeFilter)) {
+                        return t.getType() == TransactionType.INCOME;
+                    }
+                    if ("Chi tiêu".equals(typeFilter)) {
+                        return t.getType() == TransactionType.EXPENSE;
+                    }
+                    return true;
+                })
                 .filter(t -> walletFilter == null || walletFilter.getId() == 0 || t.getWalletId() == walletFilter.getId())
                 .sorted(comparator)
                 .toList();
@@ -1106,7 +1170,11 @@ public class MainApp extends Application {
 
     private void exportReportCsv(boolean byMonth) {
         try {
-            int month = reportMonthBox.getValue() != null ? reportMonthBox.getValue() : LocalDate.now().getMonthValue();
+            Integer month = reportMonthBox.getValue();
+            if (byMonth && month == null) {
+                alert("Vui lòng chọn tháng để xuất báo cáo tháng.");
+                return;
+            }
             int year = reportYearBox.getValue() != null ? reportYearBox.getValue() : LocalDate.now().getYear();
             List<Transaction> source = transactionService.list(currentUserId()).stream()
                     .filter(t -> byMonth ? (t.getTransactionDate().getMonthValue() == month && t.getTransactionDate().getYear() == year)
@@ -1171,6 +1239,26 @@ public class MainApp extends Application {
         categoryNameMap = categories.stream().collect(Collectors.toMap(Category::getId, Category::getName));
     }
 
+    private void refreshBudgetCategoryBox() {
+        if (budgetCategoryBox == null) {
+            return;
+        }
+        Integer selectedId = budgetCategoryBox.getValue() != null ? budgetCategoryBox.getValue().getId() : null;
+        List<Category> categories = categoryService.list(currentUserId());
+        budgetCategoryBox.setItems(FXCollections.observableArrayList(categories));
+        categoryNameMap = categories.stream().collect(Collectors.toMap(Category::getId, Category::getName));
+        if (selectedId != null) {
+            budgetCategoryBox.getItems().stream()
+                    .filter(c -> c.getId() == selectedId)
+                    .findFirst()
+                    .ifPresentOrElse(
+                            c -> budgetCategoryBox.getSelectionModel().select(c),
+                            () -> budgetCategoryBox.getSelectionModel().clearSelection());
+        } else {
+            budgetCategoryBox.getSelectionModel().clearSelection();
+        }
+    }
+
     private void selectWallet(ComboBox<Wallet> walletBox, int walletId) {
         Optional<Wallet> found = walletBox.getItems().stream().filter(w -> w.getId() == walletId).findFirst();
         found.ifPresent(w -> walletBox.getSelectionModel().select(w));
@@ -1221,6 +1309,7 @@ public class MainApp extends Application {
         if (budgetData != null) {
             List<Budget> budgets = budgetService.list(currentUserId());
             budgetData.setAll(budgets);
+            refreshBudgetCategoryBox();
             if (budgetDeleteAllBtn != null) {
                 resetCheckedMap(budgetCheckedMap, budgets, () -> updateBulkDeleteButton(budgetDeleteAllBtn, budgetCheckedMap));
             }
@@ -1258,24 +1347,29 @@ public class MainApp extends Application {
         categoryNameMap = categoryService.list(currentUserId()).stream()
                 .collect(Collectors.toMap(Category::getId, Category::getName));
 
-        int month = reportMonthBox.getValue() != null ? reportMonthBox.getValue() : LocalDate.now().getMonthValue();
+        Integer month = reportMonthBox.getValue();
         int year = reportYearBox.getValue() != null ? reportYearBox.getValue() : LocalDate.now().getYear();
 
-        var incomeMonth = reportService.totalIncomeByMonth(currentUserId(), month, year);
-        var expenseMonth = reportService.totalExpenseByMonth(currentUserId(), month, year);
-        var netMonth = incomeMonth.subtract(expenseMonth);
+        BigDecimal income = month == null
+                ? reportService.totalIncomeByYear(currentUserId(), year)
+                : reportService.totalIncomeByMonth(currentUserId(), month, year);
+        BigDecimal expense = month == null
+                ? reportService.totalExpenseByYear(currentUserId(), year)
+                : reportService.totalExpenseByMonth(currentUserId(), month, year);
+        BigDecimal net = income.subtract(expense);
 
-        if (monthlyLabel != null) monthlyLabel.setText(fmt(incomeMonth));
-        if (yearlyLabel != null) yearlyLabel.setText(fmt(expenseMonth));
+        if (monthlyLabel != null) monthlyLabel.setText(fmt(income));
+        if (yearlyLabel != null) yearlyLabel.setText(fmt(expense));
         if (dailyLabel != null) {
-            dailyLabel.setText(fmt(netMonth));
-            dailyLabel.setStyle(netMonth.compareTo(BigDecimal.ZERO) < 0
+            dailyLabel.setText(fmt(net));
+            dailyLabel.setStyle(net.compareTo(BigDecimal.ZERO) < 0
                     ? "-fx-font-weight: 700; -fx-text-fill: #dc2626;"
                     : "-fx-font-weight: 700; -fx-text-fill: #16a34a;");
         }
         if (topCatLabel != null) {
-            topCatLabel.setText(reportService.topExpenseCategory(currentUserId(), month, year)
-                    .orElse("Chưa có dữ liệu"));
+            topCatLabel.setText(month == null
+                    ? topExpenseCategoryByYear(year).orElse("Chưa có dữ liệu")
+                    : reportService.topExpenseCategory(currentUserId(), month, year).orElse("Chưa có dữ liệu"));
         }
         if (totalWalletLabel != null) {
             totalWalletLabel.setText(fmt(reportService.totalWalletBalance(currentUserId())));
@@ -1283,9 +1377,20 @@ public class MainApp extends Application {
 
         if (reportTxData != null) {
             reportTxData.setAll(transactionService.list(currentUserId()).stream()
-                    .filter(t -> t.getTransactionDate().getMonthValue() == month && t.getTransactionDate().getYear() == year)
+                    .filter(t -> t.getTransactionDate().getYear() == year)
+                    .filter(t -> month == null || t.getTransactionDate().getMonthValue() == month)
                     .toList());
         }
+    }
+
+    private Optional<String> topExpenseCategoryByYear(int year) {
+        return transactionService.list(currentUserId()).stream()
+                .filter(t -> t.getType() == TransactionType.EXPENSE && t.getTransactionDate().getYear() == year)
+                .collect(Collectors.groupingBy(Transaction::getCategoryId,
+                        Collectors.reducing(BigDecimal.ZERO, Transaction::getAmount, BigDecimal::add)))
+                .entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(entry -> categoryNameMap.getOrDefault(entry.getKey(), "Danh mục #" + entry.getKey()));
     }
 
 }

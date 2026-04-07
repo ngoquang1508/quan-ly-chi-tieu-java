@@ -9,6 +9,7 @@ com\expensemanager\config\DBConnection.class
 com\expensemanager\model\Wallet.class
 com\expensemanager\repository\NotificationRepository.class
 com\expensemanager\repository\WalletRepository.class
+com\expensemanager\MainApp$2.class
 com\expensemanager\model\CategoryType.class
 com\expensemanager\util\PasswordUtil.class
 com\expensemanager\model\WalletType.class
@@ -23,6 +24,7 @@ com\expensemanager\repository\TransactionRepository.class
 com\expensemanager\repository\UserRepository.class
 com\expensemanager\model\TransactionType.class
 com\expensemanager\controller\TransactionController.class
+com\expensemanager\MainApp$3.class
 com\expensemanager\model\Budget.class
 com\expensemanager\service\CategoryService.class
 com\expensemanager\controller\ReportController.class

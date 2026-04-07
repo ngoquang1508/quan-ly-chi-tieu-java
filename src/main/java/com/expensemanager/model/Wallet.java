@@ -73,6 +73,9 @@ public class Wallet {
 
     @Override
     public String toString() {
+        if (id == 0) {
+            return name;
+        }
         return name + " (" + type + ")";
     }
 }

@@ -101,7 +101,10 @@ public class MainApp extends Application {
             } catch (IllegalArgumentException e1) {
                 alert(AlertType.WARNING, e1.getMessage());
             } catch (Exception e1) {
-                alert(AlertType.ERROR, "Lỗi hệ thống");
+                // Hiển thị chi tiết để dễ debug lỗi kết nối DB, v.v.
+                e1.printStackTrace();
+                String detail = e1.getMessage() != null ? e1.getMessage() : e1.getClass().getSimpleName();
+                alert(AlertType.ERROR, "Lỗi hệ thống: " + detail);
             }
         });
 

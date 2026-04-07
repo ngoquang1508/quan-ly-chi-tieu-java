@@ -3,18 +3,14 @@ D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\service\B
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\service\NotificationService.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\Category.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\service\CategoryService.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\TransactionController.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\CategoryType.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\repository\WalletRepository.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\WalletType.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\config\DBConnection.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\repository\NotificationRepository.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\repository\TransactionRepository.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\BudgetController.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\User.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\repository\CategoryRepository.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\CategoryController.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\WalletController.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\Transaction.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\service\AuthService.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\Budget.java
@@ -25,8 +21,6 @@ D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\Not
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\model\Wallet.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\service\WalletService.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\util\PasswordUtil.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\NotificationController.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\view\DashboardView.java
-D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\controller\ReportController.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\repository\UserRepository.java
 D:\eclipse-workspace\quan_ly_chi_tieu\src\main\java\com\expensemanager\MainApp.java

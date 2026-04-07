@@ -8,7 +8,8 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 /**
- * Simple DB connection factory that reads settings from classpath file db.properties.
+ * Simple DB connection factory that reads settings from classpath file
+ * db.properties.
  * Environment variables DB_URL, DB_USER, DB_PASSWORD override file values.
  */
 public final class DBConnection {

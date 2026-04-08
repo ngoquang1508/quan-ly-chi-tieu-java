@@ -2,6 +2,7 @@
 root, .root {
     -fx-font-family: "Segoe UI", "Inter", sans-serif;
     -fx-background-color: linear-gradient(to bottom right, #f7f9fc, #e9eef7);
+    -fx-alignment: CENTER;
 }
 
 .header {
@@ -79,4 +80,37 @@ TextField, ComboBox, DatePicker {
     -fx-border-color: #dce3f0;
     -fx-border-radius: 8;
     -fx-background-radius: 8;
+}
+
+/* --- Auth pages --- */
+.auth-card {
+    -fx-background-color: white;
+    -fx-padding: 24;
+    -fx-border-radius: 12;
+    -fx-background-radius: 12;
+    -fx-border-color: #d8e0f0;
+    -fx-effect: dropshadow(gaussian, rgba(31,41,55,0.08), 12, 0, 0, 4);
+    -fx-hgap: 10;
+    -fx-vgap: 12;
+}
+
+.auth-card Label {
+    -fx-font-weight: 600;
+    -fx-text-fill: #0f172a;
+}
+
+.auth-card TextField, .auth-card PasswordField {
+    -fx-pref-height: 34;
+    -fx-font-size: 13px;
+    -fx-padding: 6 10 6 10;
+}
+
+.auth-card Button {
+    -fx-pref-height: 36;
+    -fx-padding: 6 14 6 14;
+}
+
+.helper-text {
+    -fx-text-fill: #6b7280;
+    -fx-font-size: 12px;
 }

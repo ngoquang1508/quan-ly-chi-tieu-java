@@ -4,11 +4,15 @@ import com.expensemanager.repository.*;
 import com.expensemanager.service.*;
 import com.expensemanager.view.DashboardView;
 import javafx.application.Application;
+import javafx.application.Platform;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.Alert.AlertType;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
 public class MainApp extends Application {
@@ -68,11 +72,18 @@ public class MainApp extends Application {
         primaryStage.show();
     }
 
-    private GridPane buildLoginPane() {
+    private StackPane buildLoginPane() {
         GridPane grid = baseGrid();
+        grid.getStyleClass().add("auth-card");
+        grid.setMaxWidth(420);
+        grid.setAlignment(javafx.geometry.Pos.CENTER);
         TextField username = new TextField();
         PasswordField password = new PasswordField();
         Label message = new Label();
+        message.getStyleClass().add("helper-text");
+        ProgressIndicator loading = new ProgressIndicator();
+        loading.setVisible(false);
+        loading.setPrefSize(24, 24);
 
         Button loginBtn = new Button("Đăng nhập");
         loginBtn.setOnAction(e -> {
@@ -91,37 +102,58 @@ public class MainApp extends Application {
                 return;
             }
 
-            try {
-                boolean ok = authService.login(user, pass);
-                if (ok) {
+            setLoginLoading(true, loginBtn, username, password, loading, message);
+
+            Task<Boolean> loginTask = new Task<>() {
+                @Override
+                protected Boolean call() {
+                    return authService.login(user, pass);
+                }
+            };
+
+            loginTask.setOnSucceeded(ev -> {
+                setLoginLoading(false, loginBtn, username, password, loading, message);
+                Boolean ok = loginTask.getValue();
+                if (Boolean.TRUE.equals(ok)) {
                     showDashboard();
                 } else {
                     alert(AlertType.WARNING, "Tài khoản hoặc mật khẩu không đúng!");
                 }
-            } catch (IllegalArgumentException e1) {
-                alert(AlertType.WARNING, e1.getMessage());
-            } catch (Exception e1) {
-                // Hiển thị chi tiết để dễ debug lỗi kết nối DB, v.v.
-                e1.printStackTrace();
-                String detail = e1.getMessage() != null ? e1.getMessage() : e1.getClass().getSimpleName();
-                alert(AlertType.ERROR, "Lỗi hệ thống: " + detail);
-            }
+            });
+
+            loginTask.setOnFailed(ev -> {
+                setLoginLoading(false, loginBtn, username, password, loading, message);
+                Throwable ex = loginTask.getException();
+                ex.printStackTrace();
+                String detail = ex != null && ex.getMessage() != null ? ex.getMessage() : "Lỗi hệ thống";
+                alert(AlertType.ERROR, detail);
+            });
+
+            new Thread(loginTask, "login-task").start();
         });
 
         grid.addRow(0, new Label("Tài khoản"), username);
         grid.addRow(1, new Label("Mật khẩu"), password);
-        grid.add(loginBtn, 1, 2);
+        grid.add(new HBox(8, loginBtn, loading), 1, 2);
         grid.add(message, 1, 3);
-        return grid;
+
+        StackPane wrapper = new StackPane(grid);
+        StackPane.setAlignment(grid, javafx.geometry.Pos.CENTER);
+        wrapper.setPadding(new Insets(32));
+        return wrapper;
     }
 
-    private GridPane buildRegisterPane() {
+    private StackPane buildRegisterPane() {
         GridPane grid = baseGrid();
+        grid.getStyleClass().add("auth-card");
+        grid.setMaxWidth(420);
+        grid.setAlignment(javafx.geometry.Pos.CENTER);
         TextField username = new TextField();
         TextField email = new TextField();
         TextField fullName = new TextField();
         PasswordField password = new PasswordField();
         Label message = new Label();
+        message.getStyleClass().add("helper-text");
 
         Button registerBtn = new Button("Đăng ký");
         registerBtn.setOnAction(e -> {
@@ -193,13 +225,17 @@ public class MainApp extends Application {
             }
         });
 
-        grid.addRow(0, new Label("Username"), username);
+        grid.addRow(0, new Label("Tài khoản"), username);
         grid.addRow(1, new Label("Email"), email);
         grid.addRow(2, new Label("Họ tên"), fullName);
-        grid.addRow(3, new Label("Password"), password);
+        grid.addRow(3, new Label("Mật khẩu"), password);
         grid.add(registerBtn, 1, 4);
         grid.add(message, 1, 5);
-        return grid;
+
+        StackPane wrapper = new StackPane(grid);
+        StackPane.setAlignment(grid, javafx.geometry.Pos.CENTER);
+        wrapper.setPadding(new Insets(32));
+        return wrapper;
     }
 
     private void showDashboard() {
@@ -223,5 +259,13 @@ public class MainApp extends Application {
     private void alert(Alert.AlertType type, String msg) {
         Alert alert = new Alert(type, msg, ButtonType.OK);
         alert.showAndWait();
+    }
+
+    private void setLoginLoading(boolean loading, Button loginBtn, TextField username, PasswordField password,
+                                 ProgressIndicator spinner, Label message) {
+        loginBtn.setDisable(loading);
+        username.setDisable(loading);
+        password.setDisable(loading);
+        spinner.setVisible(loading);
     }
 }

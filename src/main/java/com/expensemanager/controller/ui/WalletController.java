@@ -38,7 +38,8 @@ public class WalletController {
     private Button walletDeleteAllBtn;
     private Map<Integer, String> walletNameMap = new HashMap<>();
 
-    public WalletController(WalletService walletService, UiHelper ui, IntSupplier currentUserId, Runnable onWalletChanged) {
+    public WalletController(WalletService walletService, UiHelper ui, IntSupplier currentUserId,
+            Runnable onWalletChanged) {
         this.walletService = walletService;
         this.ui = ui;
         this.currentUserId = currentUserId;
@@ -57,8 +58,7 @@ public class WalletController {
                 ui.sttColumn(walletTable),
                 ui.column("Tên", "name"),
                 ui.column("Loại", "type"),
-                ui.moneyColumn("Số dư", "balance")
-        );
+                ui.moneyColumn("Số dư", "balance"));
 
         refreshTable();
 
@@ -70,14 +70,47 @@ public class WalletController {
         Button add = new Button("Thêm");
         add.setOnAction(e -> {
             try {
-                BigDecimal balance = initialBalance.getText().isBlank() ? BigDecimal.ZERO : new BigDecimal(initialBalance.getText().trim());
-                Wallet w = walletService.create(currentUserId.getAsInt(), name.getText(), type.getValue().name(), balance);
+                String nameVal = name.getText();
+                String balanceVal = initialBalance.getText();
+
+                if (nameVal == null || nameVal.isBlank()) {
+                    throw new IllegalArgumentException("Vui lòng nhập tên ví!");
+                }
+
+                if (type.getValue() == null) {
+                    throw new IllegalArgumentException("Vui lòng chọn loại ví!");
+                }
+
+                BigDecimal balance;
+                if (balanceVal == null || balanceVal.isBlank()) {
+                    balance = BigDecimal.ZERO;
+                } else {
+                    try {
+                        balance = new BigDecimal(balanceVal.trim());
+                    } catch (NumberFormatException ex) {
+                        throw new IllegalArgumentException("Số dư ban đầu phải là số!");
+                    }
+
+                    if (balance.compareTo(BigDecimal.ZERO) < 0) {
+                        throw new IllegalArgumentException("Số dư không được âm!");
+                    }
+                }
+
+                Wallet w = walletService.create(
+                        currentUserId.getAsInt(),
+                        nameVal.trim(),
+                        type.getValue().name(),
+                        balance);
+
                 refreshTable();
                 walletTable.getSelectionModel().select(w);
                 clearForm(name, initialBalance, type);
                 notifyChanged();
+
+            } catch (IllegalArgumentException ex) {
+                ui.warning(ex.getMessage());
             } catch (Exception ex) {
-                ui.error("Không thêm được ví: " + ex.getMessage());
+                ui.error("Không thêm được ví: " + ex.getMessage()); 
             }
         });
 
@@ -88,7 +121,8 @@ public class WalletController {
                 ui.info("Chọn ví để sửa");
                 return;
             }
-            boolean ok = walletService.update(currentUserId.getAsInt(), selected.getId(), name.getText(), type.getValue().name());
+            boolean ok = walletService.update(currentUserId.getAsInt(), selected.getId(), name.getText(),
+                    type.getValue().name());
             if (!ok) {
                 ui.error("Không thể cập nhật");
             }
@@ -96,7 +130,6 @@ public class WalletController {
             clearForm(name, initialBalance, type);
             notifyChanged();
         });
-
 
         walletDeleteAllBtn.setOnAction(e -> {
             List<Wallet> selected = walletCheckedMap.entrySet().stream()
@@ -128,8 +161,7 @@ public class WalletController {
                 new HBox(6, new Label("Tên"), name),
                 new HBox(6, new Label("Số dư ban đầu"), initialBalance),
                 new HBox(6, new Label("Loại"), type),
-                new HBox(6, add, update, walletDeleteAllBtn)
-        );
+                new HBox(6, add, update, walletDeleteAllBtn));
         form.setPadding(new Insets(8));
 
         BorderPane pane = new BorderPane();

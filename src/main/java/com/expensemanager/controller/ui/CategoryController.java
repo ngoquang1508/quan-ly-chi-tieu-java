@@ -37,7 +37,8 @@ public class CategoryController {
     private Button categoryDeleteAllBtn;
     private Map<Integer, String> categoryNameMap = new HashMap<>();
 
-    public CategoryController(CategoryService categoryService, UiHelper ui, IntSupplier currentUserId, Runnable onCategoryChanged) {
+    public CategoryController(CategoryService categoryService, UiHelper ui, IntSupplier currentUserId,
+            Runnable onCategoryChanged) {
         this.categoryService = categoryService;
         this.ui = ui;
         this.currentUserId = currentUserId;
@@ -56,8 +57,7 @@ public class CategoryController {
                 ui.sttColumn(categoryTable),
                 ui.column("Tên", "name"),
                 ui.column("Loại", "type"),
-                ui.column("Icon", "icon")
-        );
+                ui.column("Icon", "icon"));
 
         refresh();
 
@@ -69,10 +69,28 @@ public class CategoryController {
         Button add = new Button("Thêm");
         add.setOnAction(e -> {
             try {
-                categoryService.create(currentUserId.getAsInt(), name.getText(), type.getValue(), icon.getText());
+                String nameVal = name.getText();
+
+                if (nameVal.isBlank()) {
+                    throw new IllegalArgumentException("Vui lòng nhập tên danh mục!");
+                }
+
+                if (type.getValue() == null) {
+                    throw new IllegalArgumentException("Vui lòng chọn loại danh mục!");
+                }
+
+                categoryService.create(
+                        currentUserId.getAsInt(),
+                        nameVal,
+                        type.getValue(),
+                        icon.getText());
+
                 refresh();
                 clearForm(name, icon, type);
                 notifyChanged();
+
+            } catch (IllegalArgumentException ex) {
+                ui.warning(ex.getMessage());
             } catch (Exception ex) {
                 ui.error("Không thêm được danh mục: " + ex.getMessage());
             }
@@ -85,8 +103,10 @@ public class CategoryController {
                 ui.info("Chọn danh mục để sửa");
                 return;
             }
-            boolean ok = categoryService.update(currentUserId.getAsInt(), selected.getId(), name.getText(), type.getValue(), icon.getText());
-            if (!ok) ui.error("Cập nhật thất bại");
+            boolean ok = categoryService.update(currentUserId.getAsInt(), selected.getId(), name.getText(),
+                    type.getValue(), icon.getText());
+            if (!ok)
+                ui.error("Cập nhật thất bại");
             refresh();
             clearForm(name, icon, type);
             notifyChanged();
@@ -97,8 +117,10 @@ public class CategoryController {
                     .filter(entry -> entry.getValue().get())
                     .map(Map.Entry::getKey)
                     .collect(Collectors.toList());
-            if (selected.isEmpty()) return;
-            if (!ui.confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " danh mục đã chọn?")) return;
+            if (selected.isEmpty())
+                return;
+            if (!ui.confirmDelete("Bạn có chắc muốn xóa " + selected.size() + " danh mục đã chọn?"))
+                return;
             for (Category category : selected) {
                 categoryService.delete(currentUserId.getAsInt(), category.getId());
             }
@@ -119,8 +141,7 @@ public class CategoryController {
                 new HBox(6, new Label("Tên"), name),
                 new HBox(6, new Label("Loại"), type),
                 new HBox(6, new Label("Icon"), icon),
-                new HBox(6, add, update, categoryDeleteAllBtn)
-        );
+                new HBox(6, add, update, categoryDeleteAllBtn));
         form.setPadding(new Insets(8));
 
         BorderPane pane = new BorderPane(categoryTable, null, null, form, null);
@@ -163,7 +184,8 @@ public class CategoryController {
     }
 
     private void notifyChanged() {
-        if (onCategoryChanged != null) onCategoryChanged.run();
+        if (onCategoryChanged != null)
+            onCategoryChanged.run();
     }
 
     public void setOnCategoryChanged(Runnable onCategoryChanged) {

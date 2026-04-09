@@ -58,10 +58,10 @@ public class TransactionController {
     private Map<Integer, String> categoryNameMap = new HashMap<>();
 
     public TransactionController(TransactionService transactionService,
-                                 WalletService walletService,
-                                 CategoryService categoryService,
-                                 UiHelper ui,
-                                 IntSupplier currentUserId) {
+            WalletService walletService,
+            CategoryService categoryService,
+            UiHelper ui,
+            IntSupplier currentUserId) {
         this.transactionService = transactionService;
         this.walletService = walletService;
         this.categoryService = categoryService;
@@ -87,8 +87,7 @@ public class TransactionController {
                 ui.txAmountColumn("Số tiền"),
                 ui.mappingColumn("Ví", Transaction::getWalletId, () -> walletNameMap, "Ví #"),
                 ui.mappingColumn("Danh mục", Transaction::getCategoryId, () -> categoryNameMap, "DM #"),
-                ui.column("Tiêu đề", "title")
-        );
+                ui.column("Tiêu đề", "title"));
         transactionData = FXCollections.observableArrayList();
         transactionTable.setItems(transactionData);
 
@@ -100,8 +99,7 @@ public class TransactionController {
         txTypeFilterBox.getSelectionModel().selectFirst();
         txWalletFilterBox = new ComboBox<>();
         txSortFilterBox = new ComboBox<>(FXCollections.observableArrayList(
-                "Ngày giảm dần", "Ngày tăng dần", "Số tiền giảm dần", "Số tiền tăng dần"
-        ));
+                "Ngày giảm dần", "Ngày tăng dần", "Số tiền giảm dần", "Số tiền tăng dần"));
         txSortFilterBox.getSelectionModel().selectFirst();
         refreshTransactionFilterCombos();
 
@@ -144,15 +142,13 @@ public class TransactionController {
                 new HBox(6, new Label("Tiêu đề"), title),
                 new HBox(6, new Label("Ghi chú"), note),
                 new HBox(6, new Label("Ngày"), datePicker),
-                new HBox(6, add, update, transactionDeleteAllBtn)
-        );
+                new HBox(6, add, update, transactionDeleteAllBtn));
         form.setPadding(new Insets(8));
 
         HBox filterBar = new HBox(8,
                 new Label("Lọc loại"), txTypeFilterBox,
                 new Label("Ví"), txWalletFilterBox,
-                new Label("Sắp xếp"), txSortFilterBox
-        );
+                new Label("Sắp xếp"), txSortFilterBox);
         filterBar.setPadding(new Insets(8));
 
         BorderPane pane = new BorderPane();
@@ -183,31 +179,73 @@ public class TransactionController {
 
     private void addTransaction(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note, DatePicker datePicker) {
         try {
+            if (txWalletBox.getValue() == null) {
+                throw new IllegalArgumentException("Vui lòng chọn ví!");
+            }
+
+            if (txCategoryBox.getValue() == null) {
+                throw new IllegalArgumentException("Vui lòng chọn danh mục!");
+            }
+
+            if (type.getValue() == null) {
+                throw new IllegalArgumentException("Vui lòng chọn loại giao dịch!");
+            }
+
+            String amountVal = amount.getText();
+            if (amountVal == null || amountVal.isBlank()) {
+                throw new IllegalArgumentException("Vui lòng nhập số tiền!");
+            }
+
+            BigDecimal amountValParsed;
+            try {
+                amountValParsed = new BigDecimal(amountVal.trim());
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Số tiền phải là số!");
+            }
+
+            if (amountValParsed.compareTo(BigDecimal.ZERO) <= 0) {
+                throw new IllegalArgumentException("Số tiền phải lớn hơn 0!");
+            }
+
+            String titleVal = title.getText();
+            if (titleVal == null || titleVal.isBlank()) {
+                throw new IllegalArgumentException("Vui lòng nhập tiêu đề!");
+            }
+
+            if (datePicker.getValue() == null) {
+                throw new IllegalArgumentException("Vui lòng chọn ngày!");
+            }
+
             Transaction tx = new Transaction();
             tx.setUserId(currentUserId.getAsInt());
             tx.setWalletId(txWalletBox.getValue().getId());
             tx.setCategoryId(txCategoryBox.getValue().getId());
             tx.setType(type.getValue());
-            tx.setAmount(new BigDecimal(amount.getText()));
-            tx.setTitle(title.getText());
+            tx.setAmount(amountValParsed);
+            tx.setTitle(titleVal.trim());
             tx.setNote(note.getText());
             tx.setTransactionDate(datePicker.getValue());
+
             Optional<String> walletWarning = transactionService.walletOverdrawnWarningBeforeAdd(tx);
             Transaction savedTx = transactionService.add(tx);
+
             walletWarning.ifPresent(ui::warning);
+
             reloadTransactions();
             applyTransactionFilter();
             clearForm(type, amount, title, note, datePicker);
             transactionTable.getSelectionModel().select(savedTx);
             notifyChanged();
+
         } catch (IllegalArgumentException ex) {
-            ui.info(ex.getMessage());
+            ui.warning(ex.getMessage());
         } catch (Exception ex) {
             ui.error("Không thêm được giao dịch: " + ex.getMessage());
         }
     }
 
-    private void updateTransaction(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note, DatePicker datePicker) {
+    private void updateTransaction(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note,
+            DatePicker datePicker) {
         Transaction selected = transactionTable.getSelectionModel().getSelectedItem();
         if (selected == null) {
             ui.info("Chọn giao dịch để sửa");
@@ -239,7 +277,8 @@ public class TransactionController {
         }
     }
 
-    private void deleteSelectedTransactions(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note, DatePicker datePicker) {
+    private void deleteSelectedTransactions(ComboBox<TransactionType> type, TextField amount, TextField title,
+            TextField note, DatePicker datePicker) {
         List<Transaction> selected = checkedItems(transactionCheckedMap);
         if (selected.isEmpty()) {
             return;
@@ -285,7 +324,8 @@ public class TransactionController {
     }
 
     private void applyTransactionFilter() {
-        if (transactionData == null || txWalletFilterBox == null || txTypeFilterBox == null || txSortFilterBox == null) {
+        if (transactionData == null || txWalletFilterBox == null || txTypeFilterBox == null
+                || txSortFilterBox == null) {
             return;
         }
         String typeFilter = txTypeFilterBox != null ? txTypeFilterBox.getValue() : "TẤT CẢ";
@@ -303,7 +343,8 @@ public class TransactionController {
             comparator = Comparator.comparing(Transaction::getAmount, Comparator.nullsLast(Comparator.naturalOrder()))
                     .thenComparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.naturalOrder()));
         } else {
-            comparator = Comparator.comparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.reverseOrder()))
+            comparator = Comparator
+                    .comparing(Transaction::getTransactionDate, Comparator.nullsLast(Comparator.reverseOrder()))
                     .thenComparing(Transaction::getAmount, Comparator.nullsLast(Comparator.reverseOrder()));
         }
 
@@ -315,7 +356,8 @@ public class TransactionController {
                         default -> true;
                     };
                 })
-                .filter(t -> walletFilter == null || walletFilter.getId() == 0 || t.getWalletId() == walletFilter.getId())
+                .filter(t -> walletFilter == null || walletFilter.getId() == 0
+                        || t.getWalletId() == walletFilter.getId())
                 .sorted(comparator)
                 .toList();
         transactionData.setAll(filtered);
@@ -357,14 +399,17 @@ public class TransactionController {
                 .ifPresent(c -> categoryBox.getSelectionModel().select(c));
     }
 
-    private void clearForm(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note, DatePicker datePicker) {
+    private void clearForm(ComboBox<TransactionType> type, TextField amount, TextField title, TextField note,
+            DatePicker datePicker) {
         amount.clear();
         title.clear();
         note.clear();
         datePicker.setValue(LocalDate.now());
         type.getSelectionModel().select(TransactionType.EXPENSE);
-        if (!txWalletBox.getItems().isEmpty()) txWalletBox.getSelectionModel().selectFirst();
-        if (!txCategoryBox.getItems().isEmpty()) txCategoryBox.getSelectionModel().selectFirst();
+        if (!txWalletBox.getItems().isEmpty())
+            txWalletBox.getSelectionModel().selectFirst();
+        if (!txCategoryBox.getItems().isEmpty())
+            txCategoryBox.getSelectionModel().selectFirst();
         transactionTable.getSelectionModel().clearSelection();
     }
 

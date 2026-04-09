@@ -42,7 +42,8 @@ public class BudgetController {
     private ComboBox<Category> budgetCategoryBox;
     private Map<Integer, String> categoryNameMap = new HashMap<>();
 
-    public BudgetController(BudgetService budgetService, CategoryService categoryService, UiHelper ui, IntSupplier currentUserId) {
+    public BudgetController(BudgetService budgetService, CategoryService categoryService, UiHelper ui,
+            IntSupplier currentUserId) {
         this.budgetService = budgetService;
         this.categoryService = categoryService;
         this.ui = ui;
@@ -57,8 +58,8 @@ public class BudgetController {
         budgetDeleteAllBtn.setManaged(false);
 
         TableColumn<Budget, String> catCol = new TableColumn<>("Danh mục");
-        catCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createObjectBinding(() ->
-                categoryNameMap.getOrDefault(c.getValue().getCategoryId(), "#" + c.getValue().getCategoryId())));
+        catCol.setCellValueFactory(c -> javafx.beans.binding.Bindings.createObjectBinding(
+                () -> categoryNameMap.getOrDefault(c.getValue().getCategoryId(), "#" + c.getValue().getCategoryId())));
 
         budgetTable.getColumns().addAll(
                 ui.selectColumn(budgetTable, budgetCheckedMap, this::updateBulkDeleteButton),
@@ -66,8 +67,7 @@ public class BudgetController {
                 catCol,
                 ui.column("Tháng", "month"),
                 ui.column("Năm", "year"),
-                ui.moneyColumn("Giới hạn", "amountLimit")
-        );
+                ui.moneyColumn("Giới hạn", "amountLimit"));
 
         budgetData = FXCollections.observableArrayList();
         budgetTable.setItems(budgetData);
@@ -101,8 +101,7 @@ public class BudgetController {
                 new HBox(6, new Label("Tháng"), month),
                 new HBox(6, new Label("Năm"), year),
                 new HBox(6, new Label("Giới hạn"), amount),
-                new HBox(6, addBudget, updateBudget, budgetDeleteAllBtn)
-        );
+                new HBox(6, addBudget, updateBudget, budgetDeleteAllBtn));
         form.setPadding(new Insets(8));
 
         BorderPane pane = new BorderPane();
@@ -132,22 +131,69 @@ public class BudgetController {
         refresh();
     }
 
-    private void addBudget(TextField month, TextField year, TextField amount) {
+    private void addBudget(TextField monthField, TextField yearField, TextField amountField) {
         try {
+            String monthVal = monthField.getText();
+            String yearVal = yearField.getText();
+            String amountVal = amountField.getText();
+
             Category cat = budgetCategoryBox.getValue();
             if (cat == null) {
-                ui.info("Chọn danh mục trước khi thêm ngân sách");
-                return;
+                throw new IllegalArgumentException("Chọn danh mục trước khi thêm ngân sách");
             }
-            Budget b = budgetService.create(currentUserId.getAsInt(), cat.getId(),
-                    new BigDecimal(amount.getText()),
-                    Integer.parseInt(month.getText()),
-                    Integer.parseInt(year.getText()));
+
+            if (monthVal == null || monthVal.isBlank()) {
+                throw new IllegalArgumentException("Vui lòng nhập tháng!");
+            }
+
+            int month;
+            try {
+                month = Integer.parseInt(monthVal);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Tháng phải là số!");
+            }
+
+            if (month < 1 || month > 12) {
+                throw new IllegalArgumentException("Tháng phải từ 1 đến 12!");
+            }
+
+            if (yearVal == null || yearVal.isBlank()) {
+                throw new IllegalArgumentException("Vui lòng nhập năm!");
+            }
+
+            int year;
+            try {
+                year = Integer.parseInt(yearVal);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Năm phải là số!");
+            }
+
+            if (amountVal == null || amountVal.isBlank()) {
+                throw new IllegalArgumentException("Vui lòng nhập giới hạn ngân sách!");
+            }
+
+            BigDecimal amount;
+            try {
+                amount = new BigDecimal(amountVal);
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Giới hạn phải là số!");
+            }
+
+            Budget b = budgetService.create(
+                    currentUserId.getAsInt(),
+                    cat.getId(),
+                    amount,
+                    month,
+                    year);
+
             refresh();
             budgetTable.getSelectionModel().select(b);
-            clearForm(month, year, amount);
-        } catch (Exception ex) {
-            ui.error("Không thêm được ngân sách: " + ex.getMessage());
+            clearForm(monthField, yearField, amountField);
+
+        } catch (IllegalArgumentException e) {
+            ui.warning(e.getMessage());
+        } catch (Exception e) {
+            ui.error("Không thêm được ngân sách: " + e.getMessage());
         }
     }
 
